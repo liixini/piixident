@@ -34,7 +34,7 @@ if [ "$stored_version" != "$CACHE_VERSION" ]; then
 fi
 # Compute file checksums (detect new/changed/removed wallpapers)
 static_check=$(find "$wall_dir" -type f \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' \) ! -name 'wallpaper.jpg' -printf '%P %T@\n' 2>/dev/null | sort)
-video_check=$(find "$wall_dir" -type f \( -iname '*.mp4' -o -iname '*.webm' -o -iname '*.mkv' -o -iname '*.avi' -o -iname '*.mov' \) -printf '%P %T@\n' 2>/dev/null | sort)
+video_check=$(find "$wall_dir" -type f \( -iname '*.mp4' -o -iname '*.webm' -o -iname '*.mkv' -o -iname '*.avi' -o -iname '*.mov' -o -iname '*.gif' \) -printf '%P %T@\n' 2>/dev/null | sort)
 we_check=$(find "$we_dir" -maxdepth 1 -mindepth 1 -type d -printf '%f %T@\n' 2>/dev/null | sort)
 # Early exit if checksums match and cache is fresh
 current_checksum=$(echo "$static_check$video_check$we_check" | md5sum | cut -d' ' -f1)
@@ -58,7 +58,7 @@ tmp_work=$(mktemp)
 tmp_results=$(mktemp)
 # Collect static images (skip unchanged entries with valid thumbs)
 mapfile -d '' static_files < <(find "$wall_dir" -type f \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' -o -iname '*.webp' \) ! -name 'wallpaper.jpg' -print0 2>/dev/null | sort -z)
-mapfile -d '' video_files < <(find "$wall_dir" -type f \( -iname '*.mp4' -o -iname '*.webm' -o -iname '*.mkv' -o -iname '*.avi' -o -iname '*.mov' \) -print0 2>/dev/null | sort -z)
+mapfile -d '' video_files < <(find "$wall_dir" -type f \( -iname '*.mp4' -o -iname '*.webm' -o -iname '*.mkv' -o -iname '*.avi' -o -iname '*.mov' -o -iname '*.gif' \) -print0 2>/dev/null | sort -z)
 we_dirs=("$we_dir"/*/)
 total=$((${#static_files[@]} + ${#video_files[@]} + ${#we_dirs[@]}))
 cached_count=0

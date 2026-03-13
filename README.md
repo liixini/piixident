@@ -1,9 +1,9 @@
 # Piixident - A skewed take on shells
 
-![Desktop view](image.png)
-![Wallpaper switcher](image-1.png)
-![Window switcher](image-2.png)
-![App launcher](image-4.png)
+![Desktop view](screenshots/image.png)
+![Wallpaper switcher](screenshots/image-1.png)
+![Window switcher](screenshots/image-2.png)
+![App launcher](screenshots/image-4.png)
 
 
 ## Please read before continuing - It is important believe it or not

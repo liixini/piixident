@@ -79,7 +79,7 @@ def main():
         return rel.rsplit('.', 1)[0].replace('/', '--')
 
     if WALL_DIR.exists():
-        for ext in ['*.jpg', '*.jpeg', '*.png', '*.webp']:
+        for ext in ['*.jpg', '*.jpeg', '*.png', '*.webp', '*.gif']:
             for p in WALL_DIR.rglob(ext):
                 if p.name == 'wallpaper.jpg':
                     continue
