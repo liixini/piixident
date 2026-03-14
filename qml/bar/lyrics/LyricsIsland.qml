@@ -531,7 +531,7 @@ Item {
       if (!raw || raw.length === 0) return
 
       var baseY = 0
-      var maxAmp = heightq
+      var maxAmp = height
       var slant = lyricsIsland.diagSlant
 
       ctx.save()

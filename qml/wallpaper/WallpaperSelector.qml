@@ -629,144 +629,6 @@ Scope {
     }
 
 
-    // Right-click context menu (delete, view on Steam)
-    Rectangle {
-      id: contextMenu
-      visible: wallpaperSelector.contextMenuVisible
-      x: Math.min(wallpaperSelector.contextMenuX, parent.width - width - 10)
-      y: Math.min(wallpaperSelector.contextMenuY, parent.height - height - 10)
-      width: 220
-      height: contextMenuColumn.height + 16
-      radius: 12
-      color: wallpaperSelector.colors ? Qt.rgba(wallpaperSelector.colors.surfaceContainer.r, wallpaperSelector.colors.surfaceContainer.g, wallpaperSelector.colors.surfaceContainer.b, 0.95) : "#2a2a2a"
-      border.width: 1
-      border.color: wallpaperSelector.colors ? Qt.rgba(wallpaperSelector.colors.primary.r, wallpaperSelector.colors.primary.g, wallpaperSelector.colors.primary.b, 0.3) : Qt.rgba(1, 1, 1, 0.15)
-      z: 100
-
-      MouseArea {
-        anchors.fill: parent
-      }
-
-      Column {
-        id: contextMenuColumn
-        anchors.left: parent.left
-        anchors.right: parent.right
-        anchors.top: parent.top
-        anchors.margins: 8
-        spacing: 4
-
-        Text {
-          width: parent.width
-          text: wallpaperSelector.contextMenuName.toUpperCase()
-          color: wallpaperSelector.colors ? wallpaperSelector.colors.tertiary : "#8bceff"
-          font.family: Style.fontFamily
-          font.pixelSize: 13
-          font.weight: Font.Bold
-          font.letterSpacing: 0.5
-          elide: Text.ElideMiddle
-          horizontalAlignment: Text.AlignLeft
-          leftPadding: 8
-          topPadding: 4
-          bottomPadding: 8
-        }
-
-        Rectangle {
-          width: parent.width; height: 1
-          color: Qt.rgba(1, 1, 1, 0.1)
-        }
-
-
-        Rectangle {
-          width: parent.width; height: 36
-          color: deleteHover.containsMouse ? Qt.rgba(wallpaperSelector.colors ? wallpaperSelector.colors.primary.r : 1, wallpaperSelector.colors ? wallpaperSelector.colors.primary.g : 0.3, wallpaperSelector.colors ? wallpaperSelector.colors.primary.b : 0.3, 0.2) : "transparent"
-          border.width: deleteHover.containsMouse ? 1 : 0
-          border.color: wallpaperSelector.colors ? Qt.rgba(wallpaperSelector.colors.primary.r, wallpaperSelector.colors.primary.g, wallpaperSelector.colors.primary.b, 0.4) : Qt.rgba(1, 1, 1, 0.2)
-          Behavior on color { ColorAnimation { duration: 100 } }
-
-          Row {
-            anchors.fill: parent
-            anchors.leftMargin: 8
-            spacing: 10
-            Text {
-              anchors.verticalCenter: parent.verticalCenter
-              text: "🗑"; font.pixelSize: 14
-            }
-            Text {
-              anchors.verticalCenter: parent.verticalCenter
-              text: "DELETE LOCALLY"
-              color: wallpaperSelector.colors ? wallpaperSelector.colors.tertiary : "#8bceff"
-              font.family: Style.fontFamily
-              font.pixelSize: 12
-              font.weight: Font.Medium
-              font.letterSpacing: 0.5
-            }
-          }
-
-          MouseArea {
-            id: deleteHover
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-            onClicked: {
-              service.deleteWallpaperItem(
-                wallpaperSelector.contextMenuType,
-                wallpaperSelector.contextMenuName,
-                wallpaperSelector.contextMenuWeId
-              )
-              wallpaperSelector.contextMenuVisible = false
-            }
-          }
-        }
-
-
-        Rectangle {
-          visible: wallpaperSelector.contextMenuType === "we"
-          width: parent.width; height: 36
-          color: unsubHover.containsMouse ? Qt.rgba(wallpaperSelector.colors ? wallpaperSelector.colors.primary.r : 1, wallpaperSelector.colors ? wallpaperSelector.colors.primary.g : 0.5, wallpaperSelector.colors ? wallpaperSelector.colors.primary.b : 0, 0.2) : "transparent"
-          border.width: unsubHover.containsMouse ? 1 : 0
-          border.color: wallpaperSelector.colors ? Qt.rgba(wallpaperSelector.colors.primary.r, wallpaperSelector.colors.primary.g, wallpaperSelector.colors.primary.b, 0.4) : Qt.rgba(1, 1, 1, 0.2)
-          Behavior on color { ColorAnimation { duration: 100 } }
-
-          Row {
-            anchors.fill: parent
-            anchors.leftMargin: 8
-            spacing: 10
-            Text {
-              anchors.verticalCenter: parent.verticalCenter
-              text: "☁"; font.pixelSize: 14
-            }
-            Text {
-              anchors.verticalCenter: parent.verticalCenter
-              text: "VIEW ON STEAM"
-              color: wallpaperSelector.colors ? wallpaperSelector.colors.tertiary : "#8bceff"
-              font.family: Style.fontFamily
-              font.pixelSize: 12
-              font.weight: Font.Medium
-              font.letterSpacing: 0.5
-            }
-          }
-
-          MouseArea {
-            id: unsubHover
-            anchors.fill: parent
-            hoverEnabled: true
-            cursorShape: Qt.PointingHandCursor
-            onClicked: {
-              service.openSteamPage(wallpaperSelector.contextMenuWeId)
-              wallpaperSelector.contextMenuVisible = false
-            }
-          }
-        }
-      }
-    }
-
-
-    MouseArea {
-      anchors.fill: parent
-      visible: wallpaperSelector.contextMenuVisible
-      z: 99
-      onClicked: wallpaperSelector.contextMenuVisible = false
-    }
 
 
     // Cache loading progress bar
@@ -1355,7 +1217,7 @@ Scope {
           }
           onClicked: function(mouse) {
             if (mouse.button === Qt.RightButton) {
-              var pos = mapToItem(backgroundRect, mouse.x, mouse.y)
+              var pos = mapToItem(selectorPanel.contentItem, mouse.x, mouse.y)
               wallpaperSelector.contextMenuName = model.name
               wallpaperSelector.contextMenuType = model.type
               wallpaperSelector.contextMenuWeId = model.weId || ""
@@ -1380,6 +1242,143 @@ Scope {
           }
         }
     }
+    }
+
+    // Dismiss overlay (behind context menu, above everything else)
+    MouseArea {
+      anchors.fill: parent
+      visible: wallpaperSelector.contextMenuVisible
+      z: 199
+      onClicked: wallpaperSelector.contextMenuVisible = false
+    }
+
+    // Right-click context menu (delete, view on Steam)
+    Rectangle {
+      id: contextMenu
+      visible: wallpaperSelector.contextMenuVisible
+      x: Math.min(wallpaperSelector.contextMenuX, parent.width - width - 10)
+      y: Math.min(wallpaperSelector.contextMenuY, parent.height - height - 10)
+      width: 220
+      height: contextMenuColumn.height + 16
+      radius: 12
+      color: wallpaperSelector.colors ? Qt.rgba(wallpaperSelector.colors.surfaceContainer.r, wallpaperSelector.colors.surfaceContainer.g, wallpaperSelector.colors.surfaceContainer.b, 0.95) : "#2a2a2a"
+      border.width: 1
+      border.color: wallpaperSelector.colors ? Qt.rgba(wallpaperSelector.colors.primary.r, wallpaperSelector.colors.primary.g, wallpaperSelector.colors.primary.b, 0.3) : Qt.rgba(1, 1, 1, 0.15)
+      z: 200
+
+      MouseArea {
+        anchors.fill: parent
+      }
+
+      Column {
+        id: contextMenuColumn
+        anchors.left: parent.left
+        anchors.right: parent.right
+        anchors.top: parent.top
+        anchors.margins: 8
+        spacing: 4
+
+        Text {
+          width: parent.width
+          text: wallpaperSelector.contextMenuName.toUpperCase()
+          color: wallpaperSelector.colors ? wallpaperSelector.colors.tertiary : "#8bceff"
+          font.family: Style.fontFamily
+          font.pixelSize: 13
+          font.weight: Font.Bold
+          font.letterSpacing: 0.5
+          elide: Text.ElideMiddle
+          horizontalAlignment: Text.AlignLeft
+          leftPadding: 8
+          topPadding: 4
+          bottomPadding: 8
+        }
+
+        Rectangle {
+          width: parent.width; height: 1
+          color: Qt.rgba(1, 1, 1, 0.1)
+        }
+
+        Rectangle {
+          width: parent.width; height: 36
+          color: deleteHover.containsMouse ? Qt.rgba(wallpaperSelector.colors ? wallpaperSelector.colors.primary.r : 1, wallpaperSelector.colors ? wallpaperSelector.colors.primary.g : 0.3, wallpaperSelector.colors ? wallpaperSelector.colors.primary.b : 0.3, 0.2) : "transparent"
+          border.width: deleteHover.containsMouse ? 1 : 0
+          border.color: wallpaperSelector.colors ? Qt.rgba(wallpaperSelector.colors.primary.r, wallpaperSelector.colors.primary.g, wallpaperSelector.colors.primary.b, 0.4) : Qt.rgba(1, 1, 1, 0.2)
+          Behavior on color { ColorAnimation { duration: 100 } }
+
+          Row {
+            anchors.fill: parent
+            anchors.leftMargin: 8
+            spacing: 10
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              text: "🗑"; font.pixelSize: 14
+            }
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              text: "DELETE LOCALLY"
+              color: wallpaperSelector.colors ? wallpaperSelector.colors.tertiary : "#8bceff"
+              font.family: Style.fontFamily
+              font.pixelSize: 12
+              font.weight: Font.Medium
+              font.letterSpacing: 0.5
+            }
+          }
+
+          MouseArea {
+            id: deleteHover
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: {
+              service.deleteWallpaperItem(
+                wallpaperSelector.contextMenuType,
+                wallpaperSelector.contextMenuName,
+                wallpaperSelector.contextMenuWeId
+              )
+              wallpaperSelector.contextMenuVisible = false
+            }
+          }
+        }
+
+        Rectangle {
+          visible: wallpaperSelector.contextMenuType === "we"
+          width: parent.width; height: 36
+          color: unsubHover.containsMouse ? Qt.rgba(wallpaperSelector.colors ? wallpaperSelector.colors.primary.r : 1, wallpaperSelector.colors ? wallpaperSelector.colors.primary.g : 0.5, wallpaperSelector.colors ? wallpaperSelector.colors.primary.b : 0, 0.2) : "transparent"
+          border.width: unsubHover.containsMouse ? 1 : 0
+          border.color: wallpaperSelector.colors ? Qt.rgba(wallpaperSelector.colors.primary.r, wallpaperSelector.colors.primary.g, wallpaperSelector.colors.primary.b, 0.4) : Qt.rgba(1, 1, 1, 0.2)
+          Behavior on color { ColorAnimation { duration: 100 } }
+
+          Row {
+            anchors.fill: parent
+            anchors.leftMargin: 8
+            spacing: 10
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              text: "☁"; font.pixelSize: 14
+            }
+            Text {
+              anchors.verticalCenter: parent.verticalCenter
+              text: "VIEW ON STEAM"
+              color: wallpaperSelector.colors ? wallpaperSelector.colors.tertiary : "#8bceff"
+              font.family: Style.fontFamily
+              font.pixelSize: 12
+              font.weight: Font.Medium
+              font.letterSpacing: 0.5
+            }
+          }
+
+          MouseArea {
+            id: unsubHover
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: {
+              service.openSteamPage(wallpaperSelector.contextMenuWeId)
+              wallpaperSelector.contextMenuVisible = false
+            }
+          }
+        }
+      }
     }
 
   }
