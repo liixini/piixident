@@ -509,7 +509,7 @@ Item {
     property var displayBars: [0,0,0,0,0,0,0,0,0,0,0,0,0,0]
 
     Connections {
-      target: lyricsIsland
+      target: service
       function onAudioBarsChanged() {
         let newBars = service.audioBars
         let smoothed = []
@@ -531,7 +531,7 @@ Item {
       if (!raw || raw.length === 0) return
 
       var baseY = 0
-      var maxAmp = height
+      var maxAmp = heightq
       var slant = lyricsIsland.diagSlant
 
       ctx.save()
