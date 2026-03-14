@@ -56,7 +56,7 @@ def we_assets_dir() -> str:
     return expand_path(get("paths.steamWeAssets", ""))
 
 def wifi_interface() -> str:
-    return get("network.wifiInterface", "wlan0")
+    return get("components.bar.wifi.interface", "wlan0")
 
 def matugen_scheme() -> str:
     return get("matugen.schemeType", "scheme-fidelity")

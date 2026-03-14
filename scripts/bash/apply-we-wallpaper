@@ -9,7 +9,7 @@ we_dir=$(cfg_get '.paths.steamWorkshop')
 wall_dir=$(cfg_get '.paths.wallpaper')
 we_assets=$(cfg_get '.paths.steamWeAssets')
 ollama_url=$(cfg_get '.ollama.url // "http://localhost:11434"')
-ollama_vram_model=$(cfg_get '.ollama.vramReclaimModel // "gemma3:27b"')
+ollama_model=$(cfg_get '.ollama.model // "gemma3:4b"')
 matugen_scheme=$(cfg_get '.matugen.schemeType // "scheme-fidelity"')
 kde_scheme=$(cfg_get '.matugen.kdeColorScheme // "PiixidentMatugen"')
 lockscreen_video="$wall_dir/lockscreen-video.mp4"
@@ -24,7 +24,7 @@ pkill -f "tag-wallpapers" 2>/dev/null
 pkill -f "analyze-wallpaper-colors" 2>/dev/null
 pkill -f "process-wallpaper-item" 2>/dev/null
 pkill -f "regenerate-wallpaper-analysis" 2>/dev/null
-curl -sf "$ollama_url/api/generate" -d '{"model":"'"$ollama_vram_model"'","keep_alive":0}' >/dev/null 2>&1 &
+curl -sf "$ollama_url/api/generate" -d '{"model":"'"$ollama_model"'","keep_alive":0}' >/dev/null 2>&1 &
 sleep 2
 
 # Kill existing wallpaper processes

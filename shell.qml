@@ -13,7 +13,7 @@ import QtQuick.Layouts
 import QtQuick.Shapes
 import Qt.labs.platform
 import "qml"
-import "qml/bars"
+import "qml/bar"
 
 ShellRoot {
   id: root
@@ -23,7 +23,7 @@ ShellRoot {
   // IPC command listener (reads from FIFO pipe)
   // Supports: lock, powermenu, launcher, toggleBar, wallpaper,
   //   smarthome, switcherOpen/Next/Prev/Confirm/Cancel/Close,
-  //   notifications, workspaces
+  //   notifications
   Process {
     id: ipcListener
     running: true
@@ -77,8 +77,6 @@ ShellRoot {
           if (root.windowSwitcherInstance) root.windowSwitcherInstance.closeSelected()
         } else if (cmd === "notifications") {
           if (root.notificationInstance) root.notificationInstance.toggleCenter()
-        } else if (cmd === "workspaces") {
-          if (root.workspaceSwitcherInstance) root.workspaceSwitcherInstance.showing = !root.workspaceSwitcherInstance.showing
         }
       }
     }
@@ -192,56 +190,49 @@ ShellRoot {
   Loader {
     id: wallpaperSelectorLoader
     active: Config.wallpaperSelectorEnabled
-    source: "qml/WallpaperSelector.qml"
+    source: "qml/wallpaper/WallpaperSelector.qml"
     onLoaded: item.colors = Qt.binding(() => colors)
   }
 
   Loader {
     id: appLauncherLoader
     active: Config.appLauncherEnabled
-    source: "qml/AppLauncherParallel.qml"
-    onLoaded: item.colors = Qt.binding(() => colors)
-  }
-
-  Loader {
-    id: workspaceSwitcherLoader
-    active: Config.workspaceSwitcherEnabled
-    source: "qml/WorkspaceSwitcherParallel.qml"
+    source: "qml/launcher/AppLauncher.qml"
     onLoaded: item.colors = Qt.binding(() => colors)
   }
 
   Loader {
     id: lockscreenLoader
     active: Config.lockscreenEnabled
-    source: "qml/Lockscreen.qml"
+    source: "qml/lock/Lockscreen.qml"
     onLoaded: item.colors = Qt.binding(() => colors)
   }
 
   Loader {
     id: powerMenuLoader
     active: Config.powerMenuEnabled
-    source: "qml/PowerMenu.qml"
+    source: "qml/power/PowerMenu.qml"
     onLoaded: item.colors = Qt.binding(() => colors)
   }
 
   Loader {
     id: windowSwitcherLoader
     active: Config.windowSwitcherEnabled
-    source: "qml/WindowSwitcherParallel.qml"
+    source: "qml/switcher/WindowSwitcher.qml"
     onLoaded: item.colors = Qt.binding(() => colors)
   }
 
   Loader {
     id: smartHomeLoader
     active: Config.smartHomeEnabled
-    source: "qml/SmartHome.qml"
+    source: "qml/smarthome/SmartHome.qml"
     onLoaded: item.colors = Qt.binding(() => colors)
   }
 
   Loader {
     id: notificationLoader
     active: Config.notificationsEnabled
-    source: "qml/NotificationPopup.qml"
+    source: "qml/notifications/NotificationPopup.qml"
     onLoaded: {
       item.colors = Qt.binding(() => colors)
       item.notifications = Qt.binding(() => root.notifications)
@@ -252,7 +243,6 @@ ShellRoot {
   // Component instance references (null until loaded)
   property var wallpaperSelectorInstance: wallpaperSelectorLoader.item ?? null
   property var appLauncherInstance: appLauncherLoader.item ?? null
-  property var workspaceSwitcherInstance: workspaceSwitcherLoader.item ?? null
   property var lockscreenInstance: lockscreenLoader.item ?? null
   property var powerMenuInstance: powerMenuLoader.item ?? null
   property var windowSwitcherInstance: windowSwitcherLoader.item ?? null
@@ -267,20 +257,6 @@ ShellRoot {
 
   PwObjectTracker {
     objects: [Pipewire.defaultAudioSink]
-  }
-
-
-  // Timezone detection
-  property string timezone: ""
-  Process {
-    id: tzProcess
-    command: ["sh", "-c", "date +%Z"]
-    running: true
-    stdout: SplitParser {
-      onRead: data => {
-        root.timezone = data.trim()
-      }
-    }
   }
 
 
@@ -508,7 +484,7 @@ ShellRoot {
   // Top bar instantiation
   property string barTheme: "minimal"
 
-  TopBarMinimal {
+  TopBar {
     id: minimalBar
     visible: Config.barEnabled && root.barTheme === "minimal" && !(root.lockscreenInstance && root.lockscreenInstance.showing)
     colors: colors

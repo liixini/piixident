@@ -1,12 +1,12 @@
 import Quickshell
 import Quickshell.Wayland
-import Quickshell.Io
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Effects
 import QtQuick.Controls
 import QtQuick.Shapes
 import QtMultimedia
+import ".."
 
 // Wallpaper picker with parallelogram slices, ollama AI tagging, color/tag/type filtering
 Scope {
@@ -15,6 +15,7 @@ Scope {
   // External bindings
   property var colors
   property bool showing: false
+  property alias selectedColorFilter: service.selectedColorFilter
 
 
   property string mainMonitor: Config.mainMonitor
@@ -27,23 +28,33 @@ Scope {
     wallpaperSelector.lastContentX = 0
     wallpaperSelector.lastIndex = 0
     sliceListView.currentIndex = 0
-    if (filteredModel.count > 0)
+    if (service.filteredModel.count > 0)
       sliceListView.positionViewAtIndex(0, ListView.Beginning)
   }
 
 
-  // Show/hide lifecycle (reset ollama state, check cache)
+  WallpaperSelectorService {
+    id: service
+    scriptsDir: Config.scriptsDir
+    homeDir: Config.homeDir
+    wallpaperDir: Config.wallpaperDir
+    cacheBaseDir: Config.cacheDir
+    weDir: Config.weDir
+    weAssetsDir: Config.weAssetsDir
+    ollamaStatusPollMs: Config.ollamaStatusPollMs
+    showing: wallpaperSelector.showing
+    onModelUpdated: {
+      if (service.filteredModel.count > 0) {
+        sliceListView.currentIndex = 0
+        sliceListView.positionViewAtIndex(0, ListView.Beginning)
+      }
+    }
+    onWallpaperApplied: wallpaperSelector.wallpaperChanged()
+  }
+
   onShowingChanged: {
     if (showing) {
-      ollamaTaggingActive = false
-      ollamaColorsActive = false
-      ollamaEta = ""
-      ollamaStartTime = 0
-      ollamaLogLine = ""
-
-      wallpaperSelector.cacheResult = ""
-      checkCache.running = true
-
+      service.startCacheCheck()
       cardShowTimer.restart()
     } else {
       cardVisible = false
@@ -51,221 +62,12 @@ Scope {
   }
 
 
-  // Cache mtime check (reload wallpaper list if cache changed)
-  Process {
-    id: cacheStatCheck
-    command: ["stat", "-c", "%Y", wallpaperSelector.wallpaperListCache]
-    property string result: ""
-    onRunningChanged: { if (running) result = "" }
-    stdout: SplitParser {
-      onRead: line => { cacheStatCheck.result = line.trim() }
-    }
-    onExited: {
-      var mtime = cacheStatCheck.result
-      if (mtime === "") {
-        return
-      }
-      if (wallpaperModel.count === 0 || mtime !== wallpaperSelector.lastCacheMtime) {
-        wallpaperSelector.lastCacheMtime = mtime
-        wallpaperModel.clear()
-        listWallpapers.running = true
-      }
-    }
-  }
-
   Timer {
     id: cardShowTimer
     interval: 50
     onTriggered: wallpaperSelector.cardVisible = true
   }
 
-
-  // Ollama analysis status polling
-  Timer {
-    id: ollamaStatusTimer
-    interval: Config.ollamaStatusPollMs
-    running: wallpaperSelector.showing
-    repeat: true
-    triggeredOnStart: true
-    onTriggered: {
-      ollamaStatusCheck.running = true
-      ollamaProgressCheck.running = true
-      if (wallpaperSelector.ollamaActive) {
-        ollamaLogCheck.running = true
-      }
-    }
-  }
-
-
-  // Live-reload metadata while ollama is analyzing
-  Timer {
-    id: liveReloadTimer
-    interval: 15000
-    running: wallpaperSelector.showing && wallpaperSelector.ollamaActive
-    repeat: true
-    onTriggered: {
-      reloadMetadata()
-    }
-  }
-
-
-  // Ollama analysis log tail reader
-  Process {
-    id: ollamaLogCheck
-    command: ["bash", "-c", "tail -n1 " + Config.cacheDir + "/analyze-wallpapers.log 2>/dev/null | cut -c1-120"]
-    running: false
-    stdout: SplitParser {
-      onRead: line => {
-        var trimmed = line.trim()
-        if (trimmed && trimmed.length > 0) {
-          wallpaperSelector.ollamaLogLine = trimmed
-        }
-      }
-    }
-  }
-
-
-  // Ollama process active/idle detection
-  Process {
-    id: ollamaStatusCheck
-    command: ["bash", "-c", "pgrep -f 'analyze-wallpapers' > /dev/null && echo 'active' || echo 'idle'"]
-    property string result: ""
-    stdout: SplitParser {
-      onRead: line => {
-        ollamaStatusCheck.result = line.trim()
-      }
-    }
-    onRunningChanged: {
-      if (running) result = ""
-    }
-    onExited: {
-      if (result === "active") {
-        ollamaDetailCheck.running = true
-      } else {
-        wallpaperSelector.ollamaTaggingActive = false
-        wallpaperSelector.ollamaColorsActive = false
-        wallpaperSelector.ollamaLogLine = ""
-      }
-    }
-  }
-
-  Process {
-    id: ollamaDetailCheck
-    command: ["bash", "-c", "pgrep -f '[a]nalyze-wallpapers' > /dev/null && echo 'tag:1:color:1' || echo 'tag:0:color:0'"]
-    stdout: SplitParser {
-      onRead: line => {
-        var parts = line.trim().split(":")
-        if (parts.length >= 4) {
-          wallpaperSelector.ollamaTaggingActive = (parts[1] === "1")
-          wallpaperSelector.ollamaColorsActive = (parts[3] === "1")
-        }
-      }
-    }
-  }
-
-  // Ollama progress tracking (thumbs, tagged, colored counts + ETA)
-  Process {
-    id: ollamaProgressCheck
-    command: ["bash", "-c", `
-      thumbs=$(( $(find ~/.cache/piixident/wallpaper/thumbs -name '*.jpg' 2>/dev/null | wc -l) + $(find ~/.cache/piixident/wallpaper/we-thumbs -name '*.jpg' 2>/dev/null | wc -l) + $(find ~/.cache/piixident/wallpaper/video-thumbs -name '*.jpg' 2>/dev/null | wc -l) ))
-      tags=$(jq 'keys | length' ~/.cache/piixident/wallpaper/tags.json 2>/dev/null || echo 0)
-      colors=$(jq 'keys | length' ~/.cache/piixident/wallpaper/colors.json 2>/dev/null || echo 0)
-      echo "$thumbs:$tags:$colors"
-    `]
-    stdout: SplitParser {
-      onRead: line => {
-        var parts = line.trim().split(":")
-        if (parts.length >= 3) {
-          var total = parseInt(parts[0]) || 0
-          var tagged = parseInt(parts[1]) || 0
-          var colored = parseInt(parts[2]) || 0
-
-          wallpaperSelector.ollamaTotalThumbs = total
-          wallpaperSelector.ollamaTaggedCount = tagged
-          wallpaperSelector.ollamaColoredCount = colored
-
-          if (!wallpaperSelector.ollamaActive) {
-            wallpaperSelector.ollamaStartTime = 0
-            wallpaperSelector.ollamaEta = ""
-            return
-          }
-
-          var now = Date.now() / 1000
-
-          if (wallpaperSelector.ollamaStartTime === 0) {
-            wallpaperSelector.ollamaStartTime = now
-            wallpaperSelector.ollamaStartTagCount = tagged
-            wallpaperSelector.ollamaStartColorCount = colored
-            wallpaperSelector.ollamaEta = "starting..."
-            return
-          }
-
-          var elapsed = now - wallpaperSelector.ollamaStartTime
-          if (elapsed < 8) {
-            wallpaperSelector.ollamaEta = "calculating..."
-            return
-          }
-
-          var processed = 0
-          var remaining = 0
-
-          if (wallpaperSelector.ollamaTaggingActive && wallpaperSelector.ollamaColorsActive) {
-            var tagRemaining = total - tagged
-            var colorRemaining = total - colored
-            remaining = tagRemaining + colorRemaining
-            processed = (tagged - wallpaperSelector.ollamaStartTagCount) + (colored - wallpaperSelector.ollamaStartColorCount)
-          } else if (wallpaperSelector.ollamaTaggingActive) {
-            processed = tagged - wallpaperSelector.ollamaStartTagCount
-            remaining = total - tagged
-          } else if (wallpaperSelector.ollamaColorsActive) {
-            processed = colored - wallpaperSelector.ollamaStartColorCount
-            remaining = total - colored
-          }
-
-          if (processed > 0 && remaining > 0) {
-            var rate = processed / elapsed
-            var etaSeconds = remaining / rate
-
-            if (etaSeconds < 60) {
-              wallpaperSelector.ollamaEta = "~" + Math.round(etaSeconds) + "s"
-            } else if (etaSeconds < 3600) {
-              wallpaperSelector.ollamaEta = "~" + Math.round(etaSeconds / 60) + "m"
-            } else {
-              var hours = Math.floor(etaSeconds / 3600)
-              var mins = Math.round((etaSeconds % 3600) / 60)
-              wallpaperSelector.ollamaEta = "~" + hours + "h" + mins + "m"
-            }
-          } else if (remaining === 0) {
-            if (tagged >= total && colored >= total && total > 0) {
-              ollamaFinalCheck.running = true
-            } else {
-              wallpaperSelector.ollamaEta = "finishing..."
-            }
-          } else {
-            wallpaperSelector.ollamaEta = "calculating..."
-          }
-        }
-      }
-    }
-  }
-
-  Process {
-    id: ollamaFinalCheck
-    command: ["bash", "-c", "pgrep -f '[t]ag-wallpapers|[a]nalyze-wallpaper-colors' > /dev/null && echo 'active' || echo 'idle'"]
-    stdout: SplitParser {
-      onRead: line => {
-        if (line.trim() === "idle") {
-          wallpaperSelector.ollamaTaggingActive = false
-          wallpaperSelector.ollamaColorsActive = false
-          wallpaperSelector.ollamaEta = ""
-          wallpaperSelector.ollamaStartTime = 0
-          wallpaperSelector.ollamaLogLine = ""
-        } else {
-          wallpaperSelector.ollamaEta = "finishing..."
-        }
-      }
-    }
-  }
 
 
   Timer {
@@ -283,122 +85,11 @@ Scope {
   property int sliceSpacing: -22
 
 
-  property string homeDir: Config.homeDir
-
-
-  property string scriptsDir: Config.scriptsDir
-
-
-  // Wallpaper directory paths
-  property string wallDir: Config.wallpaperDir
-  property string cacheDir: Config.cacheDir + "/wallpaper/thumbs"
-  property string weCache: Config.cacheDir + "/wallpaper/we-thumbs"
-  property string weDir: Config.weDir
-  property string weAssets: Config.weAssetsDir
-  property string weListCache: Config.cacheDir + "/wallpaper/we-list.txt"
-
-
   property int cardWidth: 1600
   property int topBarHeight: 50
   property bool tagCloudVisible: false
   property int tagCloudHeight: tagCloudVisible ? 120 : 0
   property int cardHeight: sliceHeight + topBarHeight + tagCloudHeight + 60
-
-
-  property string wallpaperListCache: Config.cacheDir + "/wallpaper/list.jsonl"
-
-
-  property string lastCacheMtime: ""
-
-
-  property bool cacheReady: false
-  property string cacheResult: ""
-
-
-  property int cacheProgress: 0
-  property int cacheTotal: 0
-  property bool cacheLoading: false
-
-
-  // Filter and sort state
-  property int selectedColorFilter: -1
-
-
-  property string selectedTypeFilter: ""
-
-
-  property string sortMode: "color"
-
-
-  property var selectedTags: []
-  property int selectedTagIndex: -1
-
-
-  property var popularTags: []
-
-
-  // Tags and colors metadata databases
-  property var tagsDb: ({})
-
-
-  property var colorsDb: ({})
-
-
-  property string tagsFile: Config.cacheDir + "/wallpaper/tags.json"
-
-
-  property string colorsFile: Config.cacheDir + "/wallpaper/colors.json"
-
-
-  property var matugenDb: ({})
-
-
-  property string matugenFile: Config.cacheDir + "/wallpaper/matugen-colors.json"
-
-
-  FileView { id: tagsFileView; path: wallpaperSelector.tagsFile; preload: true }
-  FileView { id: colorsFileView; path: wallpaperSelector.colorsFile; preload: true }
-  FileView { id: matugenFileView; path: wallpaperSelector.matugenFile; preload: true }
-
-  // Reload tags, colors, and matugen metadata from JSON files
-  function reloadMetadata() {
-
-    try {
-      var text = tagsFileView.text()
-      if (text.length > 0) {
-        wallpaperSelector.tagsDb = JSON.parse(text)
-        var tagCounts = {}
-        for (var name in wallpaperSelector.tagsDb) {
-          var tags = wallpaperSelector.tagsDb[name]
-          for (var i = 0; i < tags.length; i++) {
-            var tag = tags[i]
-            tagCounts[tag] = (tagCounts[tag] || 0) + 1
-          }
-        }
-        var tagArray = []
-        for (var t in tagCounts) {
-          tagArray.push({tag: t, count: tagCounts[t]})
-        }
-        tagArray.sort(function(a, b) { return b.count - a.count })
-        wallpaperSelector.popularTags = tagArray
-      }
-    } catch (e) { console.log("Error parsing tags JSON:", e) }
-
-    try {
-      var cText = colorsFileView.text()
-      if (cText.length > 0) {
-        wallpaperSelector.colorsDb = JSON.parse(cText)
-        wallpaperSelector.updateFilteredModel()
-      }
-    } catch (e) { console.log("Error parsing colors JSON:", e) }
-
-    try {
-      var mText = matugenFileView.text()
-      if (mText.length > 0) {
-        wallpaperSelector.matugenDb = JSON.parse(mText)
-      }
-    } catch (e) { console.log("Error parsing matugen JSON:", e) }
-  }
 
 
   property real lastContentX: 0
@@ -407,242 +98,6 @@ Scope {
 
   property bool cardVisible: false
 
-
-  // Ollama analysis state
-  property bool ollamaTaggingActive: false
-  property bool ollamaColorsActive: false
-  property bool ollamaActive: ollamaTaggingActive || ollamaColorsActive
-  property int ollamaTotalThumbs: 0
-  property int ollamaTaggedCount: 0
-  property int ollamaColoredCount: 0
-
-
-  property real ollamaStartTime: 0
-  property int ollamaStartTagCount: 0
-  property int ollamaStartColorCount: 0
-  property string ollamaEta: ""
-  property string ollamaLogLine: ""
-
-
-  // Wallpaper data models
-  ListModel {
-    id: wallpaperModel
-  }
-
-
-  ListModel {
-    id: filteredModel
-  }
-
-
-  // Filter and sort wallpapers by type, color, tags, and sort mode
-  function updateFilteredModel() {
-    function thumbKey(thumbPath) {
-      var fname = thumbPath.split("/").pop()
-      var dot = fname.lastIndexOf('.')
-      return dot > 0 ? fname.substring(0, dot) : fname
-    }
-
-    var items = []
-    for (var i = 0; i < wallpaperModel.count; i++) {
-      var item = wallpaperModel.get(i)
-      var lookupKey = item.weId ? item.weId : thumbKey(item.thumb)
-
-      var hue = item.hue
-      var saturation = item.saturation || 0
-
-      var effectiveType = (item.type === "we" && item.videoFile) ? "video" : item.type
-      if (selectedTypeFilter !== "" && effectiveType !== selectedTypeFilter) continue
-      if (selectedColorFilter !== -1 && hue !== selectedColorFilter) continue
-
-      if (selectedTags.length > 0) {
-        var wallpaperTags = tagsDb[lookupKey]
-        if (!wallpaperTags) continue
-        var allTagsMatch = true
-        for (var t = 0; t < selectedTags.length; t++) {
-          if (wallpaperTags.indexOf(selectedTags[t]) === -1) {
-            allTagsMatch = false
-            break
-          }
-        }
-        if (!allTagsMatch) continue
-      }
-
-      items.push({
-        name: item.name,
-        type: item.type,
-        thumb: item.thumb,
-        path: item.path,
-        weId: item.weId,
-        videoFile: item.videoFile,
-        mtime: item.mtime,
-        hue: hue,
-        saturation: saturation
-      })
-    }
-
-    if (wallpaperSelector.sortMode === "date") {
-      items.sort(function(a, b) { return b.mtime - a.mtime })
-    } else {
-      items.sort(function(a, b) {
-        var hueA = a.hue === 99 ? 100 : a.hue
-        var hueB = b.hue === 99 ? 100 : b.hue
-        if (hueA !== hueB) return hueA - hueB
-        return b.saturation - a.saturation
-      })
-    }
-
-    filteredModel.clear()
-    for (var j = 0; j < items.length; j++) {
-      filteredModel.append(items[j])
-    }
-
-
-    if (filteredModel.count > 0) {
-      sliceListView.currentIndex = 0
-      sliceListView.positionViewAtIndex(0, ListView.Beginning)
-    }
-  }
-
-  onSelectedColorFilterChanged: updateFilteredModel()
-  onSelectedTypeFilterChanged: updateFilteredModel()
-
-
-  // Cache checker process (scans wallpaper dirs, generates thumbnails)
-  Process {
-    id: checkCache
-    command: [wallpaperSelector.scriptsDir + "/bash/check-wallpaper-cache"]
-    onRunningChanged: {
-      if (running) {
-        wallpaperSelector.cacheLoading = true
-        wallpaperSelector.cacheProgress = 0
-        wallpaperSelector.cacheTotal = 0
-      }
-    }
-    stdout: SplitParser {
-      onRead: line => {
-        if (line.startsWith("progress:")) {
-          const parts = line.split(":")
-          if (parts.length === 3) {
-            wallpaperSelector.cacheProgress = parseInt(parts[1])
-            wallpaperSelector.cacheTotal = parseInt(parts[2])
-          }
-        } else if (line === "regenerated" || line === "cached") {
-          wallpaperSelector.cacheResult = line
-        }
-      }
-    }
-    onExited: {
-      wallpaperSelector.cacheReady = true
-      wallpaperSelector.cacheLoading = false
-      if (wallpaperSelector.cacheResult === "regenerated" || wallpaperModel.count === 0) {
-        wallpaperModel.clear()
-        listWallpapers.running = true
-      } else {
-        reloadMetadata()
-      }
-    }
-  }
-
-  // JSONL wallpaper list loader
-  Process {
-    id: listWallpapers
-    command: ["bash", "-c",
-      "if [ -f '" + wallpaperSelector.wallpaperListCache + "' ]; then cat '" + wallpaperSelector.wallpaperListCache + "'; fi"
-    ]
-    running: false
-    onRunningChanged: {
-      if (!running) {
-        wallpaperSelector.updateFilteredModel()
-      }
-    }
-    stdout: SplitParser {
-      onRead: line => {
-        try {
-          var obj = JSON.parse(line)
-          wallpaperModel.append({
-            name: obj.name,
-            type: obj.type,
-            thumb: obj.thumb,
-            path: (obj.type === "static" || obj.type === "video") ? wallpaperSelector.wallDir + "/" + obj.name : "",
-            weId: obj.type === "we" ? obj.id : "",
-            videoFile: obj.videoFile || "",
-            mtime: obj.mtime,
-            hue: obj.group,
-            saturation: obj.sat
-          })
-        } catch (e) {}
-      }
-    }
-    onExited: {
-      reloadMetadata()
-    }
-  }
-
-
-  // Wallpaper apply processes (static, WE, video)
-  Process {
-    id: applyWallpaper
-    command: ["bash", "-c", "true"]
-    onExited: function(code, status) {
-      if (code === 0) wallpaperSelector.wallpaperChanged()
-    }
-    function apply(path) {
-      command = [wallpaperSelector.scriptsDir + "/bash/apply-static-wallpaper", path]
-      running = true
-    }
-  }
-
-  Process {
-    id: applyWEWallpaper
-    command: ["bash", "-c", "true"]
-    function apply(id) {
-      command = [wallpaperSelector.scriptsDir + "/bash/apply-we-wallpaper", id]
-      running = true
-    }
-  }
-
-  Process {
-    id: applyVideoWallpaper
-    command: ["bash", "-c", "true"]
-    function apply(path) {
-      command = [wallpaperSelector.scriptsDir + "/bash/apply-video-wallpaper", path]
-      running = true
-    }
-  }
-
-  // Delete wallpaper and clear cache
-  Process {
-    id: deleteWallpaper
-    command: ["bash", "-c", "true"]
-    function remove(type, name, weId) {
-      if (type === "we") {
-        command = ["rm", "-rf", wallpaperSelector.weDir + "/" + weId]
-      } else {
-        command = ["rm", "-f", wallpaperSelector.wallDir + "/" + name]
-      }
-      running = true
-    }
-    onExited: { clearCache.running = true }
-  }
-
-  Process {
-    id: clearCache
-    command: ["rm", "-f", Config.cacheDir + "/wallpaper/checksum.txt"]
-    onExited: {
-      wallpaperSelector.cacheReady = false
-      wallpaperModel.clear()
-    }
-  }
-
-  Process {
-    id: unsubscribeWE
-    command: ["bash", "-c", "true"]
-    function unsubscribe(weId) {
-      command = ["xdg-open", "steam://url/CommunityFilePage/" + weId]
-      running = true
-    }
-  }
 
 
   // Right-click context menu state
@@ -743,12 +198,12 @@ Scope {
       anchors.rightMargin: 8
       z: 100
 
-      visible: wallpaperSelector.ollamaActive
-      opacity: wallpaperSelector.ollamaActive ? 1 : 0
+      visible: service.ollamaActive
+      opacity: service.ollamaActive ? 1 : 0
       Behavior on opacity { NumberAnimation { duration: 200 } }
 
       width: Math.max(ollamaStatusRow.width + 20, ollamaLogText.width + 20)
-      height: wallpaperSelector.ollamaLogLine ? 44 : 28
+      height: service.ollamaLogLine ? 44 : 28
       radius: height / 2
       color: wallpaperSelector.colors ? Qt.rgba(wallpaperSelector.colors.surfaceContainer.r, wallpaperSelector.colors.surfaceContainer.g, wallpaperSelector.colors.surfaceContainer.b, 0.9) : Qt.rgba(0.1, 0.12, 0.18, 0.9)
 
@@ -771,7 +226,7 @@ Scope {
             RotationAnimation on rotation {
               from: 0; to: 360; duration: 1000
               loops: Animation.Infinite
-              running: wallpaperSelector.ollamaActive
+              running: service.ollamaActive
             }
           }
 
@@ -779,10 +234,10 @@ Scope {
             text: {
               var status = "ANALYZING"
               var progress = ""
-              if (wallpaperSelector.ollamaTotalThumbs > 0) {
-                progress = " " + wallpaperSelector.ollamaTaggedCount + "/" + wallpaperSelector.ollamaTotalThumbs
+              if (service.ollamaTotalThumbs > 0) {
+                progress = " " + service.ollamaTaggedCount + "/" + service.ollamaTotalThumbs
               }
-              var eta = wallpaperSelector.ollamaEta
+              var eta = service.ollamaEta
               if (eta && eta !== "") return status + progress + " (" + eta + ")"
               return status + progress
             }
@@ -797,8 +252,8 @@ Scope {
         Text {
           id: ollamaLogText
           anchors.horizontalCenter: parent.horizontalCenter
-          text: wallpaperSelector.ollamaLogLine
-          visible: wallpaperSelector.ollamaLogLine !== ""
+          text: service.ollamaLogLine
+          visible: service.ollamaLogLine !== ""
           font.family: Style.fontFamilyCode
           font.pixelSize: 9
           color: wallpaperSelector.colors ? Qt.rgba(wallpaperSelector.colors.surfaceText.r, wallpaperSelector.colors.surfaceText.g, wallpaperSelector.colors.surfaceText.b, 0.6) : Qt.rgba(1, 1, 1, 0.5)
@@ -854,7 +309,7 @@ Scope {
             width: 32
             height: 24
             radius: 4
-            property bool isSelected: wallpaperSelector.selectedTypeFilter === modelData.type
+            property bool isSelected: service.selectedTypeFilter === modelData.type
             property bool isHovered: typeMouseArea.containsMouse
 
             color: isSelected
@@ -886,9 +341,9 @@ Scope {
               cursorShape: Qt.PointingHandCursor
               onClicked: {
                 if (parent.isSelected) {
-                  wallpaperSelector.selectedTypeFilter = ""
+                  service.selectedTypeFilter = ""
                 } else {
-                  wallpaperSelector.selectedTypeFilter = modelData.type
+                  service.selectedTypeFilter = modelData.type
                 }
               }
             }
@@ -920,7 +375,7 @@ Scope {
           Item {
             width: 38; height: 20
             readonly property int filterValue: index < 12 ? index : 99
-            readonly property bool isSelected: wallpaperSelector.selectedColorFilter === filterValue
+            readonly property bool isSelected: service.selectedColorFilter === filterValue
             readonly property color shapeColor: index === 12 ? "#777" : Qt.hsla(index / 12.0, 0.7, 0.5, 1.0)
             readonly property color shadowColor: index === 12 ? "#555" : Qt.hsla(index / 12.0, 0.8, 0.3, 1.0)
 
@@ -977,9 +432,9 @@ Scope {
               cursorShape: Qt.PointingHandCursor
               onClicked: {
                 if (parent.isSelected) {
-                  wallpaperSelector.selectedColorFilter = -1
+                  service.selectedColorFilter = -1
                 } else {
-                  wallpaperSelector.selectedColorFilter = parent.filterValue
+                  service.selectedColorFilter = parent.filterValue
                 }
               }
             }
@@ -1006,7 +461,7 @@ Scope {
 
           Rectangle {
             width: 32; height: 24; radius: 4
-            property bool isSelected: wallpaperSelector.sortMode === modelData.mode
+            property bool isSelected: service.sortMode === modelData.mode
             property bool isHovered: sortMouseArea.containsMouse
 
             color: isSelected
@@ -1037,8 +492,8 @@ Scope {
               hoverEnabled: true
               cursorShape: Qt.PointingHandCursor
               onClicked: {
-                wallpaperSelector.sortMode = modelData.mode
-                wallpaperSelector.updateFilteredModel()
+                service.sortMode = modelData.mode
+                service.updateFilteredModel()
               }
             }
 
@@ -1053,7 +508,7 @@ Scope {
 
 
       Text {
-        text: filteredModel.count + (filteredModel.count !== wallpaperModel.count ? "/" + wallpaperModel.count : "")
+        text: service.filteredModel.count + (service.filteredModel.count !== service.wallpaperModel.count ? "/" + service.wallpaperModel.count : "")
         font.family: Style.fontFamily
         font.pixelSize: 11
         font.weight: Font.Medium
@@ -1116,14 +571,14 @@ Scope {
         spacing: 8
 
         Repeater {
-          model: wallpaperSelector.popularTags
+          model: service.popularTags
 
           Rectangle {
             id: tagChip
             width: tagText.width + 16
             height: 26
             radius: 4
-            property bool isSelected: wallpaperSelector.selectedTags.indexOf(modelData.tag) !== -1
+            property bool isSelected: service.selectedTags.indexOf(modelData.tag) !== -1
             property bool isHovered: tagMouse.containsMouse
 
             color: isSelected
@@ -1157,15 +612,15 @@ Scope {
               hoverEnabled: true
               cursorShape: Qt.PointingHandCursor
               onClicked: {
-                var tags = wallpaperSelector.selectedTags.slice()
+                var tags = service.selectedTags.slice()
                 var idx = tags.indexOf(modelData.tag)
                 if (idx !== -1) {
                   tags.splice(idx, 1)
                 } else {
                   tags.push(modelData.tag)
                 }
-                wallpaperSelector.selectedTags = tags
-                wallpaperSelector.updateFilteredModel()
+                service.selectedTags = tags
+                service.updateFilteredModel()
               }
             }
           }
@@ -1253,7 +708,7 @@ Scope {
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
             onClicked: {
-              deleteWallpaper.remove(
+              service.deleteWallpaperItem(
                 wallpaperSelector.contextMenuType,
                 wallpaperSelector.contextMenuName,
                 wallpaperSelector.contextMenuWeId
@@ -1297,7 +752,7 @@ Scope {
             hoverEnabled: true
             cursorShape: Qt.PointingHandCursor
             onClicked: {
-              unsubscribeWE.unsubscribe(wallpaperSelector.contextMenuWeId)
+              service.openSteamPage(wallpaperSelector.contextMenuWeId)
               wallpaperSelector.contextMenuVisible = false
             }
           }
@@ -1324,8 +779,8 @@ Scope {
       height: 40
       radius: 20
       color: wallpaperSelector.colors ? Qt.rgba(wallpaperSelector.colors.surfaceContainer.r, wallpaperSelector.colors.surfaceContainer.g, wallpaperSelector.colors.surfaceContainer.b, 0.9) : Qt.rgba(0, 0, 0, 0.8)
-      visible: wallpaperSelector.cacheLoading
-      opacity: wallpaperSelector.cacheLoading ? 1 : 0
+      visible: service.cacheLoading
+      opacity: service.cacheLoading ? 1 : 0
       Behavior on opacity { NumberAnimation { duration: 200 } }
 
       Rectangle {
@@ -1343,8 +798,8 @@ Scope {
           anchors.top: parent.top
           anchors.bottom: parent.bottom
           radius: 2
-          width: wallpaperSelector.cacheTotal > 0
-            ? parent.width * (wallpaperSelector.cacheProgress / wallpaperSelector.cacheTotal)
+          width: service.cacheTotal > 0
+            ? parent.width * (service.cacheProgress / service.cacheTotal)
             : 0
           color: wallpaperSelector.colors ? wallpaperSelector.colors.primary : "#4fc3f7"
           Behavior on width { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
@@ -1354,8 +809,8 @@ Scope {
       Text {
         anchors.centerIn: parent
         anchors.verticalCenterOffset: -12
-        text: wallpaperSelector.cacheTotal > 0
-          ? "LOADING WALLPAPERS... " + wallpaperSelector.cacheProgress + " / " + wallpaperSelector.cacheTotal
+        text: service.cacheTotal > 0
+          ? "LOADING WALLPAPERS... " + service.cacheProgress + " / " + service.cacheTotal
           : "SCANNING..."
         color: wallpaperSelector.colors ? wallpaperSelector.colors.tertiary : "#8bceff"
         font.family: Style.fontFamily
@@ -1382,7 +837,7 @@ Scope {
       width: wallpaperSelector.expandedWidth + (visibleCount - 1) * (wallpaperSelector.sliceWidth + wallpaperSelector.sliceSpacing)
 
       orientation: ListView.Horizontal
-      model: filteredModel
+      model: service.filteredModel
       clip: false
       spacing: wallpaperSelector.sliceSpacing
 
@@ -1440,7 +895,7 @@ Scope {
           if (wheel.angleDelta.y > 0 || wheel.angleDelta.x > 0) {
             sliceListView.currentIndex = Math.max(0, sliceListView.currentIndex - step)
           } else if (wheel.angleDelta.y < 0 || wheel.angleDelta.x < 0) {
-            sliceListView.currentIndex = Math.min(filteredModel.count - 1, sliceListView.currentIndex + step)
+            sliceListView.currentIndex = Math.min(service.filteredModel.count - 1, sliceListView.currentIndex + step)
           }
         }
         onPressed: function(mouse) { mouse.accepted = false }
@@ -1460,14 +915,14 @@ Scope {
 
       Keys.onEscapePressed: wallpaperSelector.showing = false
       Keys.onReturnPressed: {
-        if (currentIndex >= 0 && currentIndex < filteredModel.count) {
-          const item = filteredModel.get(currentIndex)
+        if (currentIndex >= 0 && currentIndex < service.filteredModel.count) {
+          const item = service.filteredModel.get(currentIndex)
           if (item.type === "we") {
-            applyWEWallpaper.apply(item.weId)
+            service.applyWE(item.weId)
           } else if (item.type === "video") {
-            applyVideoWallpaper.apply(item.path)
+            service.applyVideo(item.path)
           } else {
-            applyWallpaper.apply(item.path)
+            service.applyStatic(item.path)
           }
         }
       }
@@ -1477,32 +932,32 @@ Scope {
           if (event.key === Qt.Key_Down) {
             wallpaperSelector.tagCloudVisible = !wallpaperSelector.tagCloudVisible
             if (!wallpaperSelector.tagCloudVisible) {
-              wallpaperSelector.selectedTags = []
-              wallpaperSelector.updateFilteredModel()
+              service.selectedTags = []
+              service.updateFilteredModel()
             }
             event.accepted = true
             return
           } else if (event.key === Qt.Key_Left) {
-            if (wallpaperSelector.selectedColorFilter === -1) {
-              wallpaperSelector.selectedColorFilter = 99
-            } else if (wallpaperSelector.selectedColorFilter === 99) {
-              wallpaperSelector.selectedColorFilter = 11
-            } else if (wallpaperSelector.selectedColorFilter === 0) {
-              wallpaperSelector.selectedColorFilter = 99
+            if (service.selectedColorFilter === -1) {
+              service.selectedColorFilter = 99
+            } else if (service.selectedColorFilter === 99) {
+              service.selectedColorFilter = 11
+            } else if (service.selectedColorFilter === 0) {
+              service.selectedColorFilter = 99
             } else {
-              wallpaperSelector.selectedColorFilter--
+              service.selectedColorFilter--
             }
             event.accepted = true
             return
           } else if (event.key === Qt.Key_Right) {
-            if (wallpaperSelector.selectedColorFilter === -1) {
-              wallpaperSelector.selectedColorFilter = 0
-            } else if (wallpaperSelector.selectedColorFilter === 11) {
-              wallpaperSelector.selectedColorFilter = 99
-            } else if (wallpaperSelector.selectedColorFilter === 99) {
-              wallpaperSelector.selectedColorFilter = 0
+            if (service.selectedColorFilter === -1) {
+              service.selectedColorFilter = 0
+            } else if (service.selectedColorFilter === 11) {
+              service.selectedColorFilter = 99
+            } else if (service.selectedColorFilter === 99) {
+              service.selectedColorFilter = 0
             } else {
-              wallpaperSelector.selectedColorFilter++
+              service.selectedColorFilter++
             }
             event.accepted = true
             return
@@ -1521,7 +976,7 @@ Scope {
         }
 
         if (event.key === Qt.Key_Right && !(event.modifiers & Qt.ShiftModifier)) {
-          if (currentIndex < filteredModel.count - 1) {
+          if (currentIndex < service.filteredModel.count - 1) {
             currentIndex++
           }
           event.accepted = true
@@ -1858,7 +1313,7 @@ Scope {
           visible: delegateItem.isCurrent && wallpaperColors !== undefined
           property var wallpaperColors: {
             var key = model.weId ? model.weId : model.thumb.split("/").pop().replace(/\.[^/.]+$/, "")
-            return wallpaperSelector.matugenDb[key]
+            return service.matugenDb[key]
           }
           Rectangle {
             width: 14; height: 14; radius: 7
@@ -1912,11 +1367,11 @@ Scope {
 
               if (delegateItem.isCurrent) {
                 if (model.type === "we") {
-                  applyWEWallpaper.apply(model.weId)
+                  service.applyWE(model.weId)
                 } else if (model.type === "video") {
-                  applyVideoWallpaper.apply(model.path)
+                  service.applyVideo(model.path)
                 } else {
-                  applyWallpaper.apply(model.path)
+                  service.applyStatic(model.path)
                 }
               } else {
                 sliceListView.currentIndex = index

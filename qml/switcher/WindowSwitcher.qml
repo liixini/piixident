@@ -6,7 +6,8 @@ import QtQuick.Layouts
 import QtQuick.Effects
 import QtQuick.Controls
 import QtQuick.Shapes
-import "components"
+import ".."
+import "../components"
 
 // Alt-Tab window switcher (parallelogram slice variant with screenshots)
 Scope {
@@ -18,39 +19,38 @@ Scope {
 
   property string mainMonitor: Config.mainMonitor
 
-  // Window list and selection state
-  property var windowList: []
-  property int selectedIndex: 0
-  property bool preserveIndex: false
+  // Service (data/logic backend)
+  WindowSwitcherService {
+    id: service
+    scriptsDir: Config.scriptsDir
+    compositor: Config.compositor
+    configPath: Config.configDir + "/data/apps.json"
+    homeDir: Config.homeDir
+    onModelBuilt: idx => {
+      sliceListView.currentIndex = idx
+    }
+  }
 
-
-  // Open/next/prev/confirm/cancel/close actions
+  // Actions delegated to service
   function open() {
-      selectedIndex = 0
-      preserveIndex = false
-      loadAppConfig()
-      fetchWindows.buf = ""
-      fetchWindows.running = true
-      showing = true
+    service.open()
+    showing = true
   }
 
   function next() {
-    if (filteredModel.count > 0) {
-      sliceListView.currentIndex = (sliceListView.currentIndex + 1) % filteredModel.count
-    }
+    if (service.filteredModel.count > 0)
+      sliceListView.currentIndex = (sliceListView.currentIndex + 1) % service.filteredModel.count
   }
 
   function prev() {
-    if (filteredModel.count > 0) {
-      sliceListView.currentIndex = (sliceListView.currentIndex - 1 + filteredModel.count) % filteredModel.count
-    }
+    if (service.filteredModel.count > 0)
+      sliceListView.currentIndex = (sliceListView.currentIndex - 1 + service.filteredModel.count) % service.filteredModel.count
   }
 
   function confirm() {
-    if (showing && filteredModel.count > 0 && sliceListView.currentIndex >= 0) {
-      var win = filteredModel.get(sliceListView.currentIndex)
-      focusProcess.command = [Config.scriptsDir + "/bash/wm-action", "focus-window", win.winId.toString()]
-      focusProcess.running = true
+    if (showing && service.filteredModel.count > 0 && sliceListView.currentIndex >= 0) {
+      var win = service.filteredModel.get(sliceListView.currentIndex)
+      service.focusWindow(win.winId)
     }
     showing = false
   }
@@ -60,24 +60,9 @@ Scope {
   }
 
   function closeSelected() {
-    if (filteredModel.count > 0 && sliceListView.currentIndex >= 0) {
-      var win = filteredModel.get(sliceListView.currentIndex)
-      closeProcess.command = [Config.scriptsDir + "/bash/wm-action", "close-window", win.winId.toString()]
-      closeProcess.running = true
-      preserveIndex = true
-      refreshTimer.restart()
-    }
-  }
-
-  Process { id: focusProcess; command: ["true"] }
-  Process { id: closeProcess; command: ["true"] }
-
-  Timer {
-    id: refreshTimer
-    interval: 100
-    onTriggered: {
-      fetchWindows.buf = ""
-      fetchWindows.running = true
+    if (service.filteredModel.count > 0 && sliceListView.currentIndex >= 0) {
+      var win = service.filteredModel.get(sliceListView.currentIndex)
+      service.closeWindow(win.winId)
     }
   }
 
@@ -101,9 +86,8 @@ Scope {
     running: windowSwitcher.showing
     repeat: true
     onTriggered: {
-      if (windowSwitcher.showing) {
+      if (windowSwitcher.showing)
         altReleaseDetector.forceActiveFocus()
-      }
     }
   }
 
@@ -115,166 +99,10 @@ Scope {
   property int skewOffset: 35
   property int sliceSpacing: -22
 
-  // Paths and screenshot state
-  property string homeDir: Config.homeDir
-  property string thumbDir: homeDir + "/.cache/window-thumbs"
-  property int screenshotCounter: 0
-  property string configPath: Config.configDir + "/data/apps.json"
-  property var appConfig: ({})
-
-  FileView {
-    id: appConfigFile
-    path: windowSwitcher.configPath
-    preload: true
-  }
-
-
-  // App config from apps.json (custom icons/names)
-  function loadAppConfig() {
-    try {
-      windowSwitcher.appConfig = JSON.parse(appConfigFile.text())
-    } catch (e) {
-      windowSwitcher.appConfig = {}
-    }
-  }
-
-
-  function getAppConf(appId) {
-    var lower = appId.toLowerCase()
-
-    if (appConfig[lower]) return appConfig[lower]
-
-    for (var key in appConfig) {
-      if (key.startsWith("_")) continue
-      if (lower.indexOf(key) !== -1 || key.indexOf(lower) !== -1) {
-        if (typeof appConfig[key] === "object") return appConfig[key]
-      }
-    }
-    return {}
-  }
-
-
-  function getIcon(appId) {
-    var conf = getAppConf(appId)
-    if (conf.icon) return conf.icon
-    return "?"
-  }
-
-
-  function getName(appId) {
-    var conf = getAppConf(appId)
-    if (conf.displayName) return conf.displayName
-    return appId
-  }
-
-
   property int cardWidth: 1600
   property int cardHeight: sliceHeight + 40
 
   property bool cardVisible: false
-
-
-  ListModel { id: filteredModel }
-
-
-  Process {
-    id: captureWindows
-    command: ["sh", "-c", "true"]
-    running: false
-    onExited: {
-      windowSwitcher.screenshotCounter++
-    }
-  }
-
-  function captureAllWindows() {
-    var cmds = ["mkdir -p " + thumbDir]
-    for (var i = 0; i < windowList.length; i++) {
-      var w = windowList[i]
-      if (w.id) {
-        cmds.push(Config.scriptsDir + "/bash/wm-action screenshot-window " + w.id + " " + thumbDir + "/" + w.id + ".png 2>/dev/null")
-      }
-    }
-    captureWindows.command = ["sh", "-c", cmds.join("; ")]
-    captureWindows.running = true
-  }
-
-
-  // Fetch window list from niri via wm-action
-  Process {
-    id: fetchWindows
-    command: [Config.scriptsDir + "/bash/wm-action", "list-windows"]
-    running: false
-    property string buf: ""
-    stdout: SplitParser {
-      splitMarker: ""
-      onRead: data => { fetchWindows.buf += data }
-    }
-    onExited: {
-      try {
-        var windows = JSON.parse(fetchWindows.buf)
-        var comp = Config.compositor
-
-        if (comp === "hyprland") {
-          for (var i = 0; i < windows.length; i++) {
-            var w = windows[i]
-            w.id = w.address
-            w.app_id = w.class || ""
-            w.workspace_id = w.workspace ? w.workspace.id : 0
-            w.is_focused = w.focusHistoryID === 0
-            w.is_floating = w.floating || false
-          }
-          windows.sort(function(a, b) {
-            return (a.focusHistoryID || 0) - (b.focusHistoryID || 0)
-          })
-        } else if (comp === "sway") {
-          for (var i = 0; i < windows.length; i++) {
-            var w = windows[i]
-            w.app_id = w.app_id || ""
-            w.workspace_id = w.num || 0
-            w.is_focused = w.focused || false
-            w.is_floating = w.type === "floating_con"
-          }
-        } else {
-          windows.sort(function(a, b) {
-            var aTime = a.focus_timestamp ? (a.focus_timestamp.secs * 1e9 + a.focus_timestamp.nanos) : 0
-            var bTime = b.focus_timestamp ? (b.focus_timestamp.secs * 1e9 + b.focus_timestamp.nanos) : 0
-            return bTime - aTime
-          })
-        }
-
-        windowSwitcher.windowList = windows
-      } catch (e) {
-        windowSwitcher.windowList = []
-      }
-      buildModel()
-      if (Config.compositor === "niri") captureAllWindows()
-    }
-  }
-
-  // Build filtered model from window list
-  function buildModel() {
-    var prevIdx = sliceListView.currentIndex
-    filteredModel.clear()
-    for (var i = 0; i < windowList.length; i++) {
-      var w = windowList[i]
-      filteredModel.append({
-        winId: w.id || 0,
-        title: w.title || "",
-        appId: w.app_id || "",
-        workspaceId: w.workspace_id || 0,
-        isFocused: w.is_focused || false,
-        isFloating: w.is_floating || false
-      })
-    }
-    if (filteredModel.count > 0) {
-      if (preserveIndex) {
-        sliceListView.currentIndex = Math.min(prevIdx, filteredModel.count - 1)
-        preserveIndex = false
-      } else {
-        sliceListView.currentIndex = filteredModel.count > 1 ? 1 : 0
-      }
-    }
-  }
 
   // Full-screen overlay panel
   PanelWindow {
@@ -390,7 +218,7 @@ Scope {
       width: windowSwitcher.expandedWidth + (visibleCount - 1) * (windowSwitcher.sliceWidth + windowSwitcher.sliceSpacing)
 
       orientation: ListView.Horizontal
-      model: filteredModel
+      model: service.filteredModel
       clip: false
       spacing: windowSwitcher.sliceSpacing
 
@@ -413,7 +241,7 @@ Scope {
 
       Text {
         anchors.centerIn: parent
-        visible: filteredModel.count === 0
+        visible: service.filteredModel.count === 0
         text: "NO WINDOWS"
         font.family: Style.fontFamily
         font.weight: Font.Bold
@@ -526,7 +354,7 @@ Scope {
           Image {
             id: windowThumb
             anchors.fill: parent
-            source: Config.compositor === "niri" && model.winId ? "file://" + windowSwitcher.thumbDir + "/" + model.winId + ".png?v=" + windowSwitcher.screenshotCounter : ""
+            source: Config.compositor === "niri" && model.winId ? "file://" + service.thumbDir + "/" + model.winId + ".png?v=" + service.screenshotCounter : ""
             fillMode: Image.PreserveAspectCrop
             smooth: true
             asynchronous: true
@@ -548,7 +376,7 @@ Scope {
             id: bigIcon
             anchors.centerIn: parent
             anchors.verticalCenterOffset: -20
-            text: windowSwitcher.getIcon(model.appId)
+            text: service.getIcon(model.appId)
             property int iconSize: delegateItem.isCurrent ? 96 : 48
             font.pixelSize: iconSize
             font.family: Style.fontFamilyMono
@@ -667,7 +495,7 @@ Scope {
 
             Text {
               anchors.horizontalCenter: parent.horizontalCenter
-              text: windowSwitcher.getName(model.appId).toUpperCase()
+              text: service.getName(model.appId).toUpperCase()
               font.family: Style.fontFamily
               font.pixelSize: 13
               font.weight: Font.Bold

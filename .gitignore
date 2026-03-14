@@ -5,14 +5,14 @@ __pycache__/
 *.pyc
 .venv/
 
-data/secrets.json
-data/credentials.json
 data/config.json
 data/apps.json
+data/secrets.json
+data/credentials.json
 
 piixgate/
-qml/SmartHome.qml
-qml/Lockscreen.qml
+qml/smarthome/
+qml/lock/
 qml/components/PasswordCard.qml
 scripts/bash/setup-piixgate
 scripts/bash/lockscreen-hide-windows

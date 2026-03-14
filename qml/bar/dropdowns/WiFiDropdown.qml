@@ -1,7 +1,7 @@
 // Imports
 import Quickshell.Io
 import QtQuick
-import ".."
+import "../.."
 
 Rectangle {
   id: root

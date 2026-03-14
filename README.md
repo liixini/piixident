@@ -196,7 +196,21 @@ Every major component can be turned off in `data/config.json` under `components`
 
 ```json
 "components": {
-  "bar": true,
+    "bar": {
+        "enabled": true,
+        "weather": { "city": "YOUR_CITY" },
+        "wifi": { "interface": "wlan0" },
+        "bluetooth": true,
+        "volume": true,
+        "calendar": true,
+        "music": {
+            "enabled": true,
+            "preferredPlayer": "spotify",
+            "visualizer": "wave",
+            "visualizerTop": true,
+            "visualizerBottom": true
+        }
+    },
   "lockscreen": true,
   "appLauncher": true,
   "wallpaperSelector": true,
@@ -204,13 +218,7 @@ Every major component can be turned off in `data/config.json` under `components`
   "workspaceSwitcher": true,
   "powerMenu": true,
   "smartHome": true,
-  "notifications": true,
-  "weather": true,
-  "wifi": true,
-  "bluetooth": true,
-  "volume": true,
-  "calendar": true,
-  "lyrics": true
+    "notifications": true
 }
 ```
 

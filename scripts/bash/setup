@@ -321,7 +321,7 @@ if [ ! -f "$CONFIG_FILE" ]; then
     --arg steam_dir "${steam_dir:-}" \
     '.compositor = $compositor
      | .monitor = $monitor
-     | .network.wifiInterface = $wifi_if
+     | .components.bar.wifi.interface = $wifi_if
      | .paths.steamWorkshop = $we_dir
      | .paths.steamWeAssets = $we_assets
      | .paths.steam = $steam_dir' \

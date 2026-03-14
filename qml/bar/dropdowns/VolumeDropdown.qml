@@ -1,7 +1,7 @@
 // Imports
 import Quickshell.Services.Pipewire
 import QtQuick
-import ".."
+import "../.."
 
 Rectangle {
   id: root

@@ -1,5 +1,6 @@
+// Imports
 import QtQuick
-import ".."
+import "../.."
 
 Rectangle {
   id: root
@@ -8,7 +9,8 @@ Rectangle {
 
   // Dropdown animation state
   property bool active: false
-  property var connectedDevices: []
+  property string weatherCity: ""
+  property var weatherForecast: []
 
   readonly property real animatedHeight: _animatedHeight
 
@@ -25,7 +27,7 @@ Rectangle {
   // Expand/collapse on toggle
   onActiveChanged: {
     if (active) {
-      _targetHeight = bluetoothColumn.implicitHeight + 24
+      _targetHeight = forecastColumn.implicitHeight + 24
     } else {
       _targetHeight = 0
     }
@@ -45,9 +47,9 @@ Rectangle {
     }
   }
 
-  // Connected device list with battery levels
+  // Forecast list (3-day)
   Column {
-    id: bluetoothColumn
+    id: forecastColumn
     anchors.right: parent.right
     anchors.rightMargin: 12
     anchors.bottom: parent.bottom
@@ -62,51 +64,62 @@ Rectangle {
     }
 
     // Content fade-in and slide-up transition
-    opacity: root.active && root._animatedHeight > (bluetoothColumn.implicitHeight * 0.5) ? 1 : 0
+    opacity: root.active && root._animatedHeight > (forecastColumn.implicitHeight * 0.5) ? 1 : 0
     transform: Translate {
-      y: root.active && root._animatedHeight > (bluetoothColumn.implicitHeight * 0.5) ? 0 : -15
+      y: root.active && root._animatedHeight > (forecastColumn.implicitHeight * 0.5) ? 0 : -15
     }
     Behavior on opacity { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
     Behavior on y { NumberAnimation { duration: 200; easing.type: Easing.OutCubic } }
 
-    // Section header
+    // City name header
     Text {
-      text: "BLUETOOTH DEVICES"
+      text: root.weatherCity.toUpperCase()
       color: root.colors.primary
       font.pixelSize: 14
       font.family: Style.fontFamily
       font.weight: Font.DemiBold
     }
 
-    // Device delegate (icon, name, battery percentage)
+    // Forecast day delegate (day name, high/low temps, description)
     Repeater {
-      model: root.connectedDevices
+      model: root.weatherForecast.slice(0, 3)
       delegate: Row {
         spacing: 12
 
         Text {
-          text: "󰂯"
-          font.pixelSize: 12
-          font.family: Style.fontFamilyNerdIcons
-          color: root.colors.primary
-        }
-
-        Text {
-          text: modelData.name || "Unknown Device"
+          text: modelData.day
           color: root.colors.backgroundText
           font.pixelSize: 12
           font.family: Style.fontFamily
           font.weight: Font.Medium
-          width: 120
+          width: 60
+        }
+
+        Row {
+          spacing: 6
+          Text {
+            text: "H: " + modelData.high
+            color: root.colors.primary
+            font.pixelSize: 12
+            font.family: Style.fontFamily
+            font.weight: Font.Medium
+          }
+          Text {
+            text: "L: " + modelData.low
+            color: root.colors.tertiary
+            font.pixelSize: 12
+            font.family: Style.fontFamily
+            font.weight: Font.Medium
+          }
         }
 
         Text {
-          text: modelData.batteryAvailable && modelData.battery > 0 ? Math.round(modelData.battery * 100) + "%" : ""
-          color: root.colors.tertiary
+          text: modelData.desc
+          color: root.colors.backgroundText
           font.pixelSize: 12
           font.family: Style.fontFamily
-          font.weight: Font.Medium
-          visible: text !== ""
+          opacity: 0.85
+          elide: Text.ElideRight
         }
       }
     }

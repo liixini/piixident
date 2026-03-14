@@ -10,17 +10,9 @@
     "steam": "~/.local/share/Steam"
   },
   "monitor": "DP-1",
-  "location": {
-    "city": "YOUR_CITY",
-    "timezone": ""
-  },
-  "network": {
-    "wifiInterface": "wlan0"
-  },
   "ollama": {
     "url": "http://localhost:11434",
-    "model": "gemma3:4b",
-    "vramReclaimModel": "gemma3:27b"
+    "model": "gemma3:4b"
   },
   "matugen": {
     "schemeType": "scheme-fidelity",
@@ -35,22 +27,43 @@
     "systemStatsFastSec": 3,
     "systemStatsSlowSec": 30
   },
-  "preferredPlayer": "spotify",
+  "terminal": "kitty",
+  "wallpaperMute": true,
   "components": {
-    "bar": true,
+    "bar": {
+      "enabled": true,
+      "weather": {
+        "city": "YOUR_CITY"
+      },
+      "wifi": {
+        "interface": "wlan0"
+      },
+      "bluetooth": true,
+      "volume": true,
+      "calendar": true,
+      "music": {
+        "enabled": true,
+        "preferredPlayer": "spotify",
+        "visualizer": "wave",
+        "visualizerTop": true,
+        "visualizerBottom": true
+      }
+    },
     "lockscreen": false,
     "appLauncher": true,
     "wallpaperSelector": true,
     "windowSwitcher": true,
     "workspaceSwitcher": true,
-    "powerMenu": true,
+    "powerMenu": {
+      "enabled": true,
+      "items": [
+        { "action": "lock", "icon": "\uf023", "label": "" },
+        { "action": "logout", "icon": "\uf2f5", "label": "" },
+        { "action": "reboot", "icon": "\uf2f9", "label": "" },
+        { "action": "poweroff", "icon": "\uf011", "label": "" }
+      ]
+    },
     "smartHome": false,
-    "notifications": true,
-    "weather": true,
-    "wifi": true,
-    "bluetooth": true,
-    "volume": true,
-    "calendar": true,
-    "lyrics": true
+    "notifications": true
   }
 }

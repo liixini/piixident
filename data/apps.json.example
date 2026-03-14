@@ -6,7 +6,7 @@
     "icon": "Nerd Font glyph to override the default app icon",
     "displayName": "Custom display name shown in the UI instead of the .desktop Name",
     "hidden": "Set to true to hide the app from the launcher",
-    "tags": "Space-separated keywords for search (e.g. "chat voice call")"
+    "tags": "Space-separated keywords for search (e.g. \"chat voice call\")"
   },
   "discord": {
     "background": "~/.config/piixident/images/apps/discord.webp",

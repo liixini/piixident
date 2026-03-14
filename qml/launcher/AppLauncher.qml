@@ -6,6 +6,7 @@ import QtQuick.Layouts
 import QtQuick.Effects
 import QtQuick.Controls
 import QtQuick.Shapes
+import ".."
 
 // Full-screen app launcher with parallelogram slice UI
 Scope {
@@ -17,22 +18,38 @@ Scope {
 
   property string mainMonitor: Config.mainMonitor
 
-  // Show/hide lifecycle (reset search, load freq data, rebuild cache)
+  // Service handles all data, search, caching, and launch logic
+  AppLauncherService {
+    id: service
+    scriptsDir: Config.scriptsDir
+    homeDir: Config.homeDir
+    cacheDir: Config.cacheDir
+    terminal: Config.terminal
+
+    onSearchTextChanged: {
+      if (searchInput.text !== service.searchText)
+        searchInput.text = service.searchText
+    }
+
+    onModelUpdated: {
+      if (service.filteredModel.count > 0) {
+        sliceListView.currentIndex = 0
+        sliceListView.positionViewAtIndex(0, ListView.Beginning)
+      }
+    }
+  }
+
+  // Show/hide lifecycle
   onShowingChanged: {
     if (showing) {
-      searchText = ""
+      service.searchText = ""
       searchInput.text = ""
-      loadFreqData()
+      service.loadFreqData()
       cardShowTimer.restart()
-
-      if (appModel.count === 0) {
-        buildCache.running = true
-      } else {
-        updateFilteredModel()
-      }
+      service.start()
     } else {
       cardVisible = false
-      searchText = ""
+      service.searchText = ""
       searchInput.text = ""
     }
   }
@@ -56,292 +73,22 @@ Scope {
   property int skewOffset: 35
   property int sliceSpacing: -22
 
-  // Paths and card dimensions
-  property string homeDir: Config.homeDir
-  property string scriptsDir: Config.scriptsDir
-  property string cacheFile: Config.cacheDir + "/app-launcher/list.jsonl"
-
+  // Card dimensions
   property int cardWidth: 1600
   property int topBarHeight: 50
   property int cardHeight: sliceHeight + topBarHeight + 60
 
   property bool cardVisible: false
-  property bool cacheLoading: false
-  property int cacheProgress: 0
-  property int cacheTotal: 0
-
-  property string searchText: ""
-
-  property string sourceFilter: ""
-
-  // Frequency-based search ranking (learns from selections)
-  property string freqCachePath: Config.cacheDir + "/app-launcher/freq.json"
-  property var freqData: ({})
-
-  FileView {
-    id: freqFile
-    path: appLauncher.freqCachePath
-    preload: true
-  }
-
-  function loadFreqData() {
-    try {
-      appLauncher.freqData = JSON.parse(freqFile.text())
-    } catch (e) {
-      appLauncher.freqData = {}
-    }
-  }
-
-  function saveFreqData() {
-    freqFile.setText(JSON.stringify(freqData))
-  }
-
-
-  // Record user selection to boost future search ranking
-  function recordSelection(appName) {
-    var query = searchText.toLowerCase().trim()
-    if (query === "") return
-
-
-    var fd = freqData
-    for (var len = 2; len <= query.length; len++) {
-      var prefix = query.substring(0, len)
-      if (!fd[prefix]) fd[prefix] = {}
-      if (!fd[prefix][appName]) fd[prefix][appName] = 0
-      fd[prefix][appName] += 1
-    }
-    freqData = fd
-    saveFreqData()
-  }
-
-
-  function getFreqScore(appName) {
-    var query = searchText.toLowerCase().trim()
-    if (query === "" || !freqData[query]) return 0
-    return freqData[query][appName] || 0
-  }
-
 
   property int lastContentX: 0
   property int lastIndex: 0
 
   function resetScroll() {
-    appLauncher.lastContentX = 0
-    appLauncher.lastIndex = 0
+    lastContentX = 0
+    lastIndex = 0
     sliceListView.currentIndex = 0
-    if (filteredModel.count > 0)
+    if (service.filteredModel.count > 0)
       sliceListView.positionViewAtIndex(0, ListView.Beginning)
-  }
-
-
-  // App data models and search/filter logic
-  ListModel { id: appModel }
-  ListModel { id: filteredModel }
-
-  // Filter apps by search text and source, sort by frequency score
-  function updateFilteredModel() {
-    var query = searchText.toLowerCase()
-    var sf = sourceFilter
-    var results = []
-    for (var i = 0; i < appModel.count; i++) {
-      var item = appModel.get(i)
-      if (item.hidden) continue
-      if (query !== "" &&
-          item.name.toLowerCase().indexOf(query) === -1 &&
-          item.categories.toLowerCase().indexOf(query) === -1 &&
-          item.displayName.toLowerCase().indexOf(query) === -1 &&
-          item.tags.toLowerCase().indexOf(query) === -1)
-        continue
-      if (sf === "steam" && item.source !== "steam") continue
-      if (sf === "desktop" && item.source !== "desktop") continue
-      if (sf === "game" && item.categories.indexOf("Game") === -1) continue
-      results.push({
-        name: item.name,
-        exec: item.exec,
-        icon: item.icon,
-        thumb: item.thumb,
-        iconPath: item.iconPath,
-        categories: item.categories,
-        source: item.source,
-        steamAppId: item.steamAppId,
-        terminal: item.terminal,
-        background: item.background,
-        customIcon: item.customIcon,
-        displayName: item.displayName,
-        tags: item.tags
-      })
-    }
-
-    if (query !== "") {
-      var freqMap = freqData[query] || {}
-      results.sort(function(a, b) {
-        var freqA = freqMap[a.name] || 0
-        var freqB = freqMap[b.name] || 0
-        if (freqA !== freqB) return freqB - freqA
-        return a.name.toLowerCase().localeCompare(b.name.toLowerCase())
-      })
-    }
-
-
-    if (results.length === filteredModel.count) {
-      var same = true
-      for (var k = 0; k < results.length; k++) {
-        if (results[k].name !== filteredModel.get(k).name) {
-          same = false
-          break
-        }
-      }
-      if (same) return
-    }
-
-    filteredModel.clear()
-    for (var j = 0; j < results.length; j++) {
-      filteredModel.append(results[j])
-    }
-    if (filteredModel.count > 0) {
-      sliceListView.currentIndex = 0
-      sliceListView.positionViewAtIndex(0, ListView.Beginning)
-    }
-  }
-
-  onSearchTextChanged: {
-    updateFilteredModel()
-    if (searchInput.text !== searchText) searchInput.text = searchText
-  }
-  onSourceFilterChanged: updateFilteredModel()
-
-
-  // Cache builder process (runs python build-app-cache)
-  Process {
-    id: buildCache
-    command: ["python3", appLauncher.scriptsDir + "/python/build-app-cache"]
-    running: false
-    onRunningChanged: {
-      if (running) {
-        appLauncher.cacheLoading = true
-        appLauncher.cacheProgress = 0
-        appLauncher.cacheTotal = 0
-      }
-    }
-    stdout: SplitParser {
-      onRead: line => {
-        if (line.startsWith("progress:")) {
-          const parts = line.split(":")
-          if (parts.length === 3) {
-            appLauncher.cacheProgress = parseInt(parts[1])
-            appLauncher.cacheTotal = parseInt(parts[2])
-          }
-        } else if (line === "done") {
-
-        }
-      }
-    }
-    onExited: {
-      appLauncher.cacheLoading = false
-      appModel.clear()
-      loadApps.running = true
-    }
-  }
-
-  // JSONL cache loader process
-  Process {
-    id: loadApps
-    command: ["bash", "-c",
-      "if [ -f '" + appLauncher.cacheFile + "' ]; then cat '" + appLauncher.cacheFile + "'; fi"
-    ]
-    running: false
-    onRunningChanged: {
-      if (!running) {
-        appLauncher.updateFilteredModel()
-      }
-    }
-    stdout: SplitParser {
-      onRead: line => {
-        try {
-          var obj = JSON.parse(line)
-          appModel.append({
-            name: obj.name || "",
-            exec: obj.exec || "",
-            icon: obj.icon || "",
-            thumb: obj.thumb || "",
-            iconPath: obj.iconPath || "",
-            categories: obj.categories || "",
-            source: obj.source || "desktop",
-            steamAppId: obj.steamAppId || "",
-            terminal: obj.terminal || false,
-            background: obj.background || "",
-            customIcon: obj.customIcon || "",
-            displayName: obj.displayName || "",
-            hidden: obj.hidden || false,
-            tags: obj.tags || ""
-          })
-        } catch (e) {}
-      }
-    }
-    onExited: {
-      appLauncher.updateFilteredModel()
-    }
-  }
-
-
-  // Desktop file watcher (inotifywait monitors .desktop dirs for changes)
-  Process {
-    id: desktopWatcher
-    running: true
-    command: ["bash", "-c",
-      "dirs=(); for d in /usr/share/applications " +
-      "\"$HOME/.local/share/applications\" " +
-      "/var/lib/flatpak/exports/share/applications " +
-      "\"$HOME/.local/share/flatpak/exports/share/applications\"; do " +
-      "[ -d \"$d\" ] && dirs+=(\"$d\"); done; " +
-      "[ ${#dirs[@]} -eq 0 ] && exit 1; " +
-      "exec inotifywait -m -r -e create,delete,modify,moved_to,moved_from " +
-      "--include '\\.desktop$' \"${dirs[@]}\""
-    ]
-    stdout: SplitParser {
-      onRead: line => {
-        desktopWatcherDebounce.restart()
-      }
-    }
-    onExited: desktopWatcherRestart.start()
-  }
-
-  // Restart watcher if it exits unexpectedly
-  Timer {
-    id: desktopWatcherRestart
-    interval: 5000
-    onTriggered: desktopWatcher.running = true
-  }
-
-  // Debounce rapid .desktop changes into a single cache rebuild
-  Timer {
-    id: desktopWatcherDebounce
-    interval: 2000
-    onTriggered: {
-      if (!buildCache.running) {
-        buildCache.running = true
-      }
-    }
-  }
-
-  // App launcher process
-  Process {
-    id: appRunner
-    command: ["true"]
-  }
-
-  // Launch an app, record selection for search ranking
-  function launchApp(appExec, isTerminal, appName) {
-
-    if (appName) recordSelection(appName)
-
-    var cmd = appExec
-    if (isTerminal) {
-      cmd = "kitty " + cmd
-    }
-    appRunner.command = ["setsid", "-f", "sh", "-c", cmd]
-    appRunner.running = true
-    appLauncher.showing = false
   }
 
 
@@ -462,7 +209,7 @@ Scope {
                 width: 32
                 height: 24
                 radius: 4
-                property bool isSelected: appLauncher.sourceFilter === modelData.filter
+                property bool isSelected: service.sourceFilter === modelData.filter
                 property bool isHovered: sourceMouseArea.containsMouse
 
                 color: isSelected
@@ -493,9 +240,9 @@ Scope {
                   cursorShape: Qt.PointingHandCursor
                   onClicked: {
                     if (parent.isSelected) {
-                      appLauncher.sourceFilter = ""
+                      service.sourceFilter = ""
                     } else {
-                      appLauncher.sourceFilter = modelData.filter
+                      service.sourceFilter = modelData.filter
                     }
                   }
                 }
@@ -535,11 +282,12 @@ Scope {
             color: "#ffffff"
             anchors.verticalCenter: parent.verticalCenter
             clip: true
-            onTextChanged: appLauncher.searchText = text
+            onTextChanged: service.searchText = text
             onAccepted: {
-              if (sliceListView.currentIndex >= 0 && sliceListView.currentIndex < filteredModel.count) {
-                var app = filteredModel.get(sliceListView.currentIndex)
-                appLauncher.launchApp(app.exec, app.terminal, app.name)
+              if (sliceListView.currentIndex >= 0 && sliceListView.currentIndex < service.filteredModel.count) {
+                var app = service.filteredModel.get(sliceListView.currentIndex)
+                service.launchApp(app.exec, app.terminal, app.name)
+                appLauncher.showing = false
               }
             }
             Keys.onEscapePressed: appLauncher.showing = false
@@ -573,7 +321,7 @@ Scope {
                                                appLauncher.colors.surfaceContainer.b, 0.95)
                                     : Qt.rgba(0.08, 0.1, 0.14, 0.95)
           radius: 20
-          visible: appLauncher.cacheLoading
+          visible: service.cacheLoading
           z: 50
 
           Rectangle {
@@ -589,8 +337,8 @@ Scope {
               anchors.top: parent.top
               anchors.bottom: parent.bottom
               radius: 2
-              width: appLauncher.cacheTotal > 0
-                ? parent.width * (appLauncher.cacheProgress / appLauncher.cacheTotal)
+              width: service.cacheTotal > 0
+                ? parent.width * (service.cacheProgress / service.cacheTotal)
                 : 0
               color: appLauncher.colors ? appLauncher.colors.primary : "#4fc3f7"
               Behavior on width { NumberAnimation { duration: 100; easing.type: Easing.OutCubic } }
@@ -600,8 +348,8 @@ Scope {
           Text {
             anchors.centerIn: parent
             anchors.verticalCenterOffset: -12
-            text: appLauncher.cacheTotal > 0
-              ? "LOADING APPS... " + appLauncher.cacheProgress + " / " + appLauncher.cacheTotal
+            text: service.cacheTotal > 0
+              ? "LOADING APPS... " + service.cacheProgress + " / " + service.cacheTotal
               : "SCANNING..."
             color: appLauncher.colors ? appLauncher.colors.tertiary : "#8bceff"
             font.family: Style.fontFamily
@@ -626,7 +374,7 @@ Scope {
       width: appLauncher.expandedWidth + (visibleCount - 1) * (appLauncher.sliceWidth + appLauncher.sliceSpacing)
 
       orientation: ListView.Horizontal
-      model: filteredModel
+      model: service.filteredModel
       clip: false
       spacing: appLauncher.sliceSpacing
 
@@ -672,7 +420,7 @@ Scope {
           if (wheel.angleDelta.y > 0 || wheel.angleDelta.x > 0) {
             sliceListView.currentIndex = Math.max(0, sliceListView.currentIndex - step)
           } else if (wheel.angleDelta.y < 0 || wheel.angleDelta.x < 0) {
-            sliceListView.currentIndex = Math.min(filteredModel.count - 1, sliceListView.currentIndex + step)
+            sliceListView.currentIndex = Math.min(service.filteredModel.count - 1, sliceListView.currentIndex + step)
           }
         }
         onPressed: function(mouse) { mouse.accepted = false }
@@ -707,9 +455,10 @@ Scope {
         }
 
         if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-          if (sliceListView.currentIndex >= 0 && sliceListView.currentIndex < filteredModel.count) {
-            var app = filteredModel.get(sliceListView.currentIndex)
-            appLauncher.launchApp(app.exec, app.terminal, app.name)
+          if (sliceListView.currentIndex >= 0 && sliceListView.currentIndex < service.filteredModel.count) {
+            var app = service.filteredModel.get(sliceListView.currentIndex)
+            service.launchApp(app.exec, app.terminal, app.name)
+            appLauncher.showing = false
           }
           event.accepted = true
           return
@@ -725,7 +474,7 @@ Scope {
           return
         }
         if (event.key === Qt.Key_Right) {
-          if (currentIndex < filteredModel.count - 1) {
+          if (currentIndex < service.filteredModel.count - 1) {
             currentIndex++
           }
           event.accepted = true
@@ -1044,7 +793,8 @@ Scope {
           }
           onClicked: function(mouse) {
             if (delegateItem.isCurrent) {
-              appLauncher.launchApp(model.exec, model.terminal, model.name)
+              service.launchApp(model.exec, model.terminal, model.name)
+              appLauncher.showing = false
             } else {
               sliceListView.currentIndex = index
             }
@@ -1108,22 +858,23 @@ Scope {
           if (event.text && event.text.length > 0 && !event.modifiers) {
             var c = event.text.charCodeAt(0)
             if (c >= 32 && c < 127) {
-              appLauncher.searchText += event.text
+              service.searchText += event.text
               event.accepted = true
               return
             }
           }
           if (event.key === Qt.Key_Backspace) {
-            if (appLauncher.searchText.length > 0) {
-              appLauncher.searchText = appLauncher.searchText.slice(0, -1)
+            if (service.searchText.length > 0) {
+              service.searchText = service.searchText.slice(0, -1)
             }
             event.accepted = true
             return
           }
           if (event.key === Qt.Key_Return || event.key === Qt.Key_Enter) {
-            if (sliceListView.currentIndex >= 0 && sliceListView.currentIndex < filteredModel.count) {
-              var app = filteredModel.get(sliceListView.currentIndex)
-              appLauncher.launchApp(app.exec, app.terminal, app.name)
+            if (sliceListView.currentIndex >= 0 && sliceListView.currentIndex < service.filteredModel.count) {
+              var app = service.filteredModel.get(sliceListView.currentIndex)
+              service.launchApp(app.exec, app.terminal, app.name)
+              appLauncher.showing = false
             }
             event.accepted = true
             return
@@ -1134,7 +885,7 @@ Scope {
             return
           }
           if (event.key === Qt.Key_Right) {
-            if (sliceListView.currentIndex < filteredModel.count - 1) sliceListView.currentIndex++
+            if (sliceListView.currentIndex < service.filteredModel.count - 1) sliceListView.currentIndex++
             event.accepted = true
             return
           }

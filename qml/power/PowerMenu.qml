@@ -4,8 +4,9 @@ import Quickshell.Io
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Effects
-import "components"
 import QtQuick.Controls
+import ".."
+import "../components"
 
 
 // Full-screen power menu with lock, logout, reboot, poweroff options.
@@ -30,13 +31,33 @@ Scope {
   property string iconFont: "Font Awesome 7 Free Solid"
 
 
-  // Menu options (lock, logout, reboot, poweroff)
-  property var options: [
-    { label: "", icon: "\uf023", command: "loginctl lock-session" },
-    { label: "", icon: "\uf2f5", command: Config.scriptsDir + "/bash/wm-action quit" },
-    { label: "", icon: "\uf2f9", command: "systemctl reboot" },
-    { label: "", icon: "\uf011", command: "systemctl poweroff" }
+  // Action-to-command mapping
+  property var _commands: ({
+    "lock": "loginctl lock-session",
+    "logout": Config.scriptsDir + "/bash/wm-action quit",
+    "reboot": "systemctl reboot",
+    "poweroff": "systemctl poweroff"
+  })
+
+  // Default options (used when config provides no array)
+  property var _defaultOptions: [
+    { label: "", icon: "\uf023", action: "lock" },
+    { label: "", icon: "\uf2f5", action: "logout" },
+    { label: "", icon: "\uf2f9", action: "reboot" },
+    { label: "", icon: "\uf011", action: "poweroff" }
   ]
+
+  // Menu options from config (order, icon, label configurable)
+  property var options: {
+    var src = Config.powerMenuOptions.length > 0 ? Config.powerMenuOptions : _defaultOptions
+    var result = []
+    for (var i = 0; i < src.length; i++) {
+      var opt = src[i]
+      var cmd = _commands[opt.action] || ""
+      if (cmd) result.push({ label: opt.label || "", icon: opt.icon || "", command: cmd })
+    }
+    return result
+  }
 
   // Show/hide lifecycle
   onShowingChanged: {

@@ -1,7 +1,6 @@
 // Imports
-import Quickshell.Io
 import QtQuick
-import ".."
+import "../.."
 
 
 Item {
@@ -15,27 +14,15 @@ Item {
 
   // Playback and lyric state
   readonly property bool musicPlaying: activePlayer && activePlayer.isPlaying
-  readonly property bool hasLyrics: currentLyric !== ""
+  readonly property bool hasLyrics: service.currentLyric !== ""
 
-  // Lyric line data and tracking
-  property string currentLyric: ""
-  property string previousLyric: ""
-  property real lyricProgress: 0.0
-  property var lyricLines: []
-  property int lyricCurrentIdx: -1
-  property bool lyricEnhanced: false
-  property string lyricState: "idle"
-  property bool lyricClearing: false
-  property var pendingLyricData: null
-
-
-  // Track position sync state
-  property real syncWallTime: 0
-  property real syncTrackMs: 0
-
-
-  // Audio visualizer bars from cava
-  property var audioBars: [0,0,0,0,0,0,0,0,0,0,0,0,0,0]
+  LyricsIslandService {
+    id: service
+    configDir: Config.configDir
+    scriptsDir: Config.scriptsDir
+    preferredPlayer: Config.preferredPlayer
+    onClearAnimationRequested: lyricClearAnim.restart()
+  }
 
   width: 700
   visible: musicPlaying
@@ -44,241 +31,6 @@ Item {
     NumberAnimation { duration: 200; easing.type: Easing.OutCubic }
   }
 
-
-  // Track position estimation and lyric clearing helpers
-  function estimatedTrackMs() {
-    if (syncWallTime <= 0) return 0
-    return syncTrackMs + (Date.now() - syncWallTime)
-  }
-
-  function clearLyricsAnimated(pendingData) {
-    if (lyricsIsland.currentLyric === "" && lyricsIsland.lyricLines.length === 0) {
-      if (pendingData) lyricsIsland._loadLyricData(pendingData)
-      return
-    }
-    lyricsIsland.lyricClearing = true
-    lyricsIsland.pendingLyricData = pendingData || null
-    lyricClearAnim.restart()
-  }
-
-  function _finishClear() {
-    lyricsIsland.lyricLines = []
-    lyricsIsland.lyricCurrentIdx = -1
-    lyricsIsland.currentLyric = ""
-    lyricsIsland.lyricProgress = 0.0
-    lyricsIsland.syncWallTime = 0
-    lyricsIsland.lyricEnhanced = false
-    lyricCurrent.text = ""
-    lyricCurrent.opacity = 0
-    lyricOutgoing.text = ""
-    lyricOutgoing.opacity = 0
-    lyricsIsland.lyricClearing = false
-    if (lyricsIsland.pendingLyricData) {
-      lyricsIsland._loadLyricData(lyricsIsland.pendingLyricData)
-      lyricsIsland.pendingLyricData = null
-    }
-  }
-
-  function _loadLyricData(obj) {
-    lyricsIsland.lyricLines = obj.lines
-    lyricsIsland.lyricEnhanced = obj.enhanced || false
-    lyricsIsland.lyricCurrentIdx = -1
-    lyricsIsland.currentLyric = ""
-    lyricsIsland.lyricProgress = 0.0
-    lyricsIsland.launchSync()
-  }
-
-  function launchSync() {
-    syncProcess.launchTime = Date.now()
-    syncProcess.running = true
-  }
-
-
-  // Cava audio visualizer process
-  Process {
-    id: cavaProcess
-    command: ["cava", "-p", Config.configDir + "/ext/cava/cava-bar.conf"]
-    running: true
-    stdout: SplitParser {
-      onRead: data => {
-        let raw = data.trim()
-        if (!raw) return
-        let vals = raw.split(";").filter(s => s !== "").map(s => parseInt(s) || 0)
-        if (vals.length > 0) lyricsIsland.audioBars = vals
-      }
-    }
-    onExited: {
-      cavaRestartTimer.start()
-    }
-  }
-
-  Timer {
-    id: cavaRestartTimer
-    interval: 2000
-    onTriggered: { if (!cavaProcess.running) cavaProcess.running = true }
-  }
-
-  // Lyrics pipe reader (ytm-lyrics-pipe)
-  Process {
-    id: lyricsProcess
-    command: [Config.scriptsDir + "/python/ytm-lyrics-pipe"]
-    running: true
-    stdout: SplitParser {
-      onRead: data => {
-        let raw = data.trim()
-        if (raw === "CLEAR") {
-          lyricsIsland.lyricState = "idle"
-          lyricsIsland.clearLyricsAnimated(null)
-          return
-        }
-        if (raw === "SEARCHING") {
-          lyricsIsland.lyricState = "searching"
-          lyricsIsland.clearLyricsAnimated(null)
-          return
-        }
-        if (raw === "NOLYRICS") {
-          lyricsIsland.lyricState = "nolyrics"
-          lyricsIsland.clearLyricsAnimated(null)
-          return
-        }
-        try {
-          let obj = JSON.parse(raw)
-          if (obj.lines && obj.lines.length > 0) {
-            lyricsIsland.lyricState = "haslyrics"
-            if (obj.player) syncProcess.activePlayer = obj.player
-            lyricsIsland.clearLyricsAnimated(obj)
-          }
-        } catch (e) {}
-      }
-    }
-    onExited: { lyricsRestartTimer.start() }
-  }
-
-  Timer {
-    id: lyricsRestartTimer
-    interval: 2000
-    onTriggered: {
-      if (!lyricsProcess.running) {
-        lyricsProcess.running = true
-      }
-    }
-  }
-
-  // Playerctl position sync process
-  // Uses preferred player if playing, otherwise queries any playing player
-  Process {
-    id: syncProcess
-    property string buf: ""
-    property real launchTime: 0
-    property string activePlayer: ""
-    command: activePlayer
-             ? ["playerctl", "--player=" + activePlayer, "position"]
-             : ["playerctl", "--player=" + Config.preferredPlayer + ",%any", "position"]
-    stdout: SplitParser {
-      onRead: data => { syncProcess.buf += data }
-    }
-    onExited: {
-      let sec = parseFloat(syncProcess.buf.trim())
-      syncProcess.buf = ""
-      if (!isNaN(sec)) {
-        let reportedMs = sec * 1000
-        let wallAtRead = Date.now()
-
-        if (lyricsIsland.syncWallTime <= 0) {
-          lyricsIsland.syncTrackMs = reportedMs
-          lyricsIsland.syncWallTime = wallAtRead
-        } else {
-          let ourEstimate = lyricsIsland.syncTrackMs + (wallAtRead - lyricsIsland.syncWallTime)
-          let drift = reportedMs - ourEstimate
-          if (Math.abs(drift) >= 5000) {
-            lyricsIsland.syncTrackMs = reportedMs
-            lyricsIsland.syncWallTime = wallAtRead
-          } else if (drift > 50) {
-            lyricsIsland.syncTrackMs = ourEstimate + drift * 0.4
-            lyricsIsland.syncWallTime = wallAtRead
-          } else if (drift < -50) {
-            let corrected = ourEstimate + drift * 0.15
-            let lines = lyricsIsland.lyricLines
-            let idx = lyricsIsland.lyricCurrentIdx
-            if (idx >= 0 && idx < lines.length && corrected < lines[idx].start) {
-              corrected = lines[idx].start
-            }
-            lyricsIsland.syncTrackMs = corrected
-            lyricsIsland.syncWallTime = wallAtRead
-          }
-        }
-      }
-    }
-  }
-
-
-  // Periodic position re-sync
-  Timer {
-    id: syncTimer
-    interval: 5000
-    repeat: true
-    running: lyricsIsland.lyricLines.length > 0
-    onTriggered: { lyricsIsland.launchSync() }
-  }
-
-  // Lyric line animation timer (word-level highlight progress)
-  Timer {
-    id: lyricAnimTimer
-    interval: 33
-    repeat: true
-    running: lyricsIsland.lyricLines.length > 0 && lyricsIsland.syncWallTime > 0
-    onTriggered: {
-      let posMs = lyricsIsland.estimatedTrackMs()
-      let lines = lyricsIsland.lyricLines
-
-      let newIdx = -1
-      for (let i = lines.length - 1; i >= 0; i--) {
-        if (posMs >= lines[i].start) {
-          newIdx = i
-          break
-        }
-      }
-
-      if (newIdx < 0) return
-
-      let line = lines[newIdx]
-
-      if (newIdx !== lyricsIsland.lyricCurrentIdx) {
-        lyricsIsland.previousLyric = lyricsIsland.currentLyric
-        lyricsIsland.currentLyric = line.text
-        lyricsIsland.lyricCurrentIdx = newIdx
-      }
-
-      if (posMs > line.end) {
-        lyricsIsland.lyricProgress = 1.0
-      } else if (line.words && line.words.length > 0) {
-        let fullText = line.text
-        let charsHighlighted = 0
-        let totalChars = fullText.length
-
-        for (let w = 0; w < line.words.length; w++) {
-          let word = line.words[w]
-          let wordLen = word.word.length
-
-          if (posMs < word.start) {
-            break
-          } else if (posMs >= word.end) {
-            charsHighlighted += wordLen
-            if (w < line.words.length - 1) charsHighlighted += 1
-          } else {
-            let wordProgress = (posMs - word.start) / (word.end - word.start)
-            charsHighlighted += wordLen * wordProgress
-            break
-          }
-        }
-
-        lyricsIsland.lyricProgress = totalChars > 0 ? Math.max(0, Math.min(1.0, charsHighlighted / totalChars)) : 1.0
-      } else {
-        let duration = line.end - line.start
-        lyricsIsland.lyricProgress = duration > 0 ? Math.max(0, Math.min(1.0, (posMs - line.start) / duration)) : 1.0
-      }
-    }
-  }
 
 
   // Parallelogram background shape
@@ -366,8 +118,8 @@ Item {
       width: parent.width
       y: lyricContainer.centerY
       text: {
-        if (lyricsIsland.lyricState === "searching") return "RETRIEVING LYRICS..."
-        if (lyricsIsland.lyricState === "nolyrics") return "NO LYRICS :("
+        if (service.lyricState === "searching") return "RETRIEVING LYRICS..."
+        if (service.lyricState === "nolyrics") return "NO LYRICS :("
         return ""
       }
       font.pixelSize: 12
@@ -417,10 +169,10 @@ Item {
     // Word-level highlight mask for enhanced lyrics
     Item {
       id: lyricClipMask
-      visible: lyricsIsland.lyricEnhanced
+      visible: service.lyricEnhanced
       x: (lyricCurrent.width - lyricCurrent.contentWidth) / 2
       y: lyricCurrent.y
-      width: lyricCurrent.contentWidth * lyricsIsland.lyricProgress
+      width: lyricCurrent.contentWidth * service.lyricProgress
       height: lyricCurrent.implicitHeight
       clip: true
 
@@ -429,7 +181,7 @@ Item {
         x: -lyricClipMask.x
         y: 0
         width: lyricContainer.width
-        text: lyricsIsland.currentLyric
+        text: service.currentLyric
         font: lyricCurrent.font
         color: lyricsIsland.colors.primary
         horizontalAlignment: Text.AlignHCenter
@@ -482,19 +234,25 @@ Item {
         target: lyricOutgoing; property: "opacity"
         to: 0.0; duration: 200; easing.type: Easing.OutCubic
       }
-      onFinished: lyricsIsland._finishClear()
+      onFinished: {
+        lyricCurrent.text = ""
+        lyricCurrent.opacity = 0
+        lyricOutgoing.text = ""
+        lyricOutgoing.opacity = 0
+        service.finishClear()
+      }
     }
 
     Connections {
-      target: lyricsIsland
+      target: service
       function onCurrentLyricChanged() {
-        if (lyricsIsland.currentLyric === "") return
+        if (service.currentLyric === "") return
         outgoingAnim.stop()
         incomingAnim.stop()
         lyricOutgoing.text = lyricCurrent.text
         lyricOutgoing.y = lyricContainer.centerY
         lyricOutgoing.opacity = 1.0
-        lyricCurrent.text = lyricsIsland.currentLyric
+        lyricCurrent.text = service.currentLyric
         lyricCurrent.y = lyricContainer.centerY + lyricContainer.slideDistance
         lyricCurrent.opacity = 0.0
         outgoingAnim.restart()
@@ -753,7 +511,7 @@ Item {
     Connections {
       target: lyricsIsland
       function onAudioBarsChanged() {
-        let newBars = lyricsIsland.audioBars
+        let newBars = service.audioBars
         let smoothed = []
         let prev = audioVisualizer.displayBars
         for (let i = 0; i < newBars.length; i++) {
@@ -816,7 +574,7 @@ Item {
         ctx.lineWidth = 1.5
         ctx.stroke()
       } else {
-        // "wave" — default
+        // wave is default
         var vals = lyricsIsland._vizEdgePad(raw)
         var step = width / (vals.length - 1)
 

@@ -4,10 +4,10 @@ import Quickshell.Services.Notifications
 import QtQuick
 import QtQuick.Layouts
 import QtQuick.Effects
-import "components"
+import ".."
+import "../components"
 
-// Notification popup toasts and sliding notification center panel
-Scope {
+// Notification popup toasts
   id: notifScope
 
   // State and layout properties
@@ -21,7 +21,7 @@ Scope {
   property int effectiveTopMargin: barVisible ? popupTopMargin + barHeight : popupTopMargin
 
 
-  // Center panel toggle and dismiss-all helper
+  // Center panel toggle and dismiss
   property bool centerOpen: false
   function toggleCenter() { centerOpen = !centerOpen }
   function dismissAll() {

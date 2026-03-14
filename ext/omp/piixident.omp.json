@@ -4,16 +4,16 @@
   "final_space": true,
   "console_title_template": "{{ .Shell }} in {{ .Folder }}",
   "palette": {
-    "primary": "#d5baff",
-    "on-primary": "#3e1a72",
-    "tertiary": "#fcb792",
-    "on-tertiary": "#4f250a",
-    "surface": "#151218",
-    "surface-variant": "#4a4550",
-    "on-surface-variant": "#ccc3d2",
+    "primary": "#c5c4e0",
+    "on-primary": "#2e2e45",
+    "tertiary": "#d6c59a",
+    "on-tertiary": "#3a2f11",
+    "surface": "#141315",
+    "surface-variant": "#47464d",
+    "on-surface-variant": "#c8c5cd",
     "error": "#ffb4ab",
     "on-error": "#690005",
-    "outline": "#958e9c"
+    "outline": "#929097"
   },
   "blocks": [
     {

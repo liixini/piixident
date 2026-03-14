@@ -8,6 +8,12 @@ import Quickshell.Io
 QtObject {
     id: config
 
+    function _resolve(path) { return path ? path.replace("~", homeDir) : "" }
+
+    // Directory paths
+    readonly property string homeDir: Quickshell.env("HOME")
+    readonly property string configDir: homeDir + "/.config/piixident"
+
     // Config file loader (auto-reloads on change)
     property var _configFile: FileView {
         path: configDir + "/data/config.json"
@@ -24,12 +30,6 @@ QtObject {
     }
 
 
-    // Directory paths
-    readonly property string homeDir: Quickshell.env("HOME")
-    readonly property string configDir: homeDir + "/.config/piixident"
-
-    function _resolve(path) { return path ? path.replace("~", homeDir) : "" }
-
     readonly property string scriptsDir: _resolve(_data.paths?.scripts) || (configDir + "/scripts")
     readonly property string cacheDir: _resolve(_data.paths?.cache) || (homeDir + "/.cache/piixident")
     readonly property string wallpaperDir: _resolve(_data.paths?.wallpaper)
@@ -41,11 +41,9 @@ QtObject {
     // Compositor
     readonly property string compositor: _data.compositor ?? "niri"
 
-    // General settings (monitor, network, polling intervals)
+    // General settings (monitor, polling intervals)
     readonly property string mainMonitor: _data.monitor ?? ""
-    readonly property string weatherCity: _data.location?.city ?? ""
-    readonly property string wifiInterface: _data.network?.wifiInterface ?? ""
-    readonly property string ollamaUrl: _data.ollama?.url ?? ""
+    readonly property string ollamaUrl: Quickshell.env("PIIXIDENT_OLLAMA_URL") || (_data.ollama?.url ?? "")
     readonly property string ollamaModel: _data.ollama?.model ?? ""
     readonly property int weatherPollMs: _data.intervals?.weatherPollMs ?? 0
     readonly property int wifiPollMs: _data.intervals?.wifiPollMs ?? 0
@@ -54,31 +52,33 @@ QtObject {
     readonly property int notificationExpireMs: _data.intervals?.notificationExpireMs ?? 0
 
 
-    // Preferred MPRIS player for music info and lyrics.
-    readonly property string preferredPlayer: _data.preferredPlayer ?? "spotify"
+    // Terminal emulator used to launch apps with Terminal=true in their .desktop entry.
+    readonly property string terminal: _data.terminal ?? "kitty"
 
-    // Audio visualizer theme: wave, bars, blocks, dots, line
-    readonly property string visualizerTheme: _data.visualizerTheme ?? "wave"
+    // Bar widget settings and toggles
+    property var _bar: _data.components?.bar ?? {}
+    readonly property bool barEnabled: _bar.enabled !== false
+    readonly property string weatherCity: Quickshell.env("PIIXIDENT_WEATHER_CITY") || (_bar.weather?.city ?? "")
+    readonly property bool weatherEnabled: _bar.weather !== undefined && _bar.weather !== false
+    readonly property string wifiInterface: _bar.wifi?.interface ?? ""
+    readonly property bool wifiEnabled: _bar.wifi !== undefined && _bar.wifi !== false
+    readonly property bool bluetoothEnabled: _bar.bluetooth !== false
+    readonly property bool volumeEnabled: _bar.volume !== false
+    readonly property bool calendarEnabled: _bar.calendar !== false
+    readonly property bool musicEnabled: _bar.music !== undefined && _bar.music !== false && _bar.music?.enabled !== false
+    readonly property string preferredPlayer: _bar.music?.preferredPlayer ?? "spotify"
+    readonly property string visualizerTheme: _bar.music?.visualizer ?? "wave"
+    readonly property bool visualizerTop: (_bar.music?.visualizerTop !== false)
+    readonly property bool visualizerBottom: (_bar.music?.visualizerBottom !== false)
 
-    // Audio visualizer visibility: top (inside bar) and bottom (hanging reflection)
-    readonly property bool visualizerTop: _data.visualizerTop !== false
-    readonly property bool visualizerBottom: _data.visualizerBottom !== false
-
-    // Component enable/disable flags
+    // Standalone component enable/disable flags
     property var _components: _data.components ?? {}
-    readonly property bool barEnabled: _components.bar !== false
     readonly property bool appLauncherEnabled: _components.appLauncher !== false
     readonly property bool wallpaperSelectorEnabled: _components.wallpaperSelector !== false
     readonly property bool windowSwitcherEnabled: _components.windowSwitcher !== false
-    readonly property bool workspaceSwitcherEnabled: _components.workspaceSwitcher !== false
-    readonly property bool powerMenuEnabled: _components.powerMenu !== false
+    readonly property bool powerMenuEnabled: _components.powerMenu !== false && _components.powerMenu?.enabled !== false
+    readonly property var powerMenuOptions: _components.powerMenu?.items ?? (Array.isArray(_components.powerMenu) ? _components.powerMenu : [])
     readonly property bool notificationsEnabled: _components.notifications !== false
-    readonly property bool weatherEnabled: _components.weather !== false
-    readonly property bool wifiEnabled: _components.wifi !== false
-    readonly property bool bluetoothEnabled: _components.bluetooth !== false
-    readonly property bool volumeEnabled: _components.volume !== false
-    readonly property bool calendarEnabled: _components.calendar !== false
-    readonly property bool lyricsEnabled: _components.lyrics !== false
     // These require extra setup (Home Assistant / PAM lockscreen) and are still WIP.
     readonly property bool lockscreenEnabled: _components.lockscreen === true
     readonly property bool smartHomeEnabled: _components.smartHome === true

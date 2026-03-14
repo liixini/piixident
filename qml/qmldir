@@ -1,12 +1,3 @@
-AppLauncherParallel 1.0 AppLauncherParallel.qml
 Colors 1.0 Colors.qml
-Lockscreen 1.0 Lockscreen.qml
-NotificationPopup 1.0 NotificationPopup.qml
-PowerMenu 1.0 PowerMenu.qml
-SmartHome 1.0 SmartHome.qml
-WallpaperSelector 1.0 WallpaperSelector.qml
-WindowSwitcher 1.0 WindowSwitcher.qml
-WindowSwitcherParallel 1.0 WindowSwitcherParallel.qml
-WorkspaceSwitcherParallel 1.0 WorkspaceSwitcherParallel.qml
 singleton Config 1.0 Config.qml
 singleton Style 1.0 style.qml

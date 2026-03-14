@@ -7,6 +7,8 @@ import Quickshell.Io
 import QtQuick
 import QtQuick.Layouts
 import ".."
+import "lyrics"
+import "dropdowns"
 
 
 PanelWindow {
@@ -74,7 +76,7 @@ PanelWindow {
   property real _bluetoothH: Config.bluetoothEnabled ? bluetoothDropdown.animatedHeight : 0
   property real _weatherH: Config.weatherEnabled ? weatherDropdown.animatedHeight : 0
   property real totalDropdownHeight: _wifiH + _volumeH + _calendarH + _bluetoothH + _weatherH
-  property bool _lyricsPlaying: Config.lyricsEnabled ? lyricsIsland.musicPlaying : false
+  property bool _lyricsPlaying: Config.musicEnabled ? lyricsIsland.musicPlaying : false
   implicitHeight: Math.max(1, animatedBarHeight) + totalDropdownHeight + (_lyricsPlaying ? waveformHeight : 0)
   exclusiveZone: barVisible ? barHeight + topMargin : 0
   color: "transparent"
@@ -251,7 +253,7 @@ PanelWindow {
     // Center panel (lyrics island)
     LyricsIsland {
       id: lyricsIsland
-      visible: Config.lyricsEnabled
+      visible: Config.musicEnabled
       anchors.horizontalCenter: parent.horizontalCenter
       anchors.top: parent.top
       anchors.bottom: parent.bottom
