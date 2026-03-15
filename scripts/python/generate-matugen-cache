@@ -8,11 +8,14 @@ import subprocess
 from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+import skwdconfig
+
 # Path constants
-THUMB_DIR = Path.home() / ".cache/piixident/wallpaper/thumbs"
-WE_THUMB_DIR = Path.home() / ".cache/piixident/wallpaper/we-thumbs"
-WALL_DIR = Path.home() / "wallpaper"
-CACHE_FILE = Path.home() / ".cache/piixident/wallpaper/matugen-colors.json"
+_cache = skwdconfig.cache_dir() / "wallpaper"
+THUMB_DIR = _cache / "thumbs"
+WE_THUMB_DIR = _cache / "we-thumbs"
+WALL_DIR = skwdconfig.wallpaper_dir()
+CACHE_FILE = _cache / "matugen-colors.json"
 MAX_WORKERS = 4
 
 # Run matugen and extract dark-mode colors

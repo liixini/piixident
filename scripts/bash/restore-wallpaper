@@ -2,7 +2,7 @@
 # Restore the last applied wallpaper on startup
 . "$(dirname "$0")/lib.sh"
 
-state="$PIIXIDENT_CACHE/last-wallpaper.json"
+state="$SKWD_CACHE/last-wallpaper.json"
 [ -f "$state" ] || exit 0
 
 type=$(jq -r '.type // ""' "$state" 2>/dev/null)

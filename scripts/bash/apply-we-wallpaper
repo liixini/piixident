@@ -11,13 +11,13 @@ we_assets=$(cfg_get '.paths.steamWeAssets')
 ollama_url=$(cfg_get '.ollama.url // "http://localhost:11434"')
 ollama_model=$(cfg_get '.ollama.model // "gemma3:4b"')
 matugen_scheme=$(cfg_get '.matugen.schemeType // "scheme-fidelity"')
-kde_scheme=$(cfg_get '.matugen.kdeColorScheme // "PiixidentMatugen"')
+kde_scheme=$(cfg_get '.matugen.kdeColorScheme // "SkwdMatugen"')
 lockscreen_video="$wall_dir/lockscreen-video.mp4"
 wm="$(dirname "$0")/wm-action"
 wp_mute=$(cfg_get '.wallpaperMute // true')
 
 # Save wallpaper state for restore on next boot
-echo '{"type":"we","we_id":"'"$we_id"'"}' > "$PIIXIDENT_CACHE/last-wallpaper.json"
+echo '{"type":"we","we_id":"'"$we_id"'"}' > "$SKWD_CACHE/last-wallpaper.json"
 
 # Stop any running analysis and reclaim VRAM from ollama
 pkill -f "tag-wallpapers" 2>/dev/null
@@ -65,7 +65,7 @@ else
   we_audio_flag="--silent"
   [ "$wp_mute" = "false" ] && we_audio_flag=""
 
-  cat > "$PIIXIDENT_RUNTIME/start-we.sh" << INNEREOF
+  cat > "$SKWD_RUNTIME/start-we.sh" << INNEREOF
 #!/bin/bash
 linux-wallpaperengine $we_audio_flag --no-fullscreen-pause --noautomute $screen_roots --assets-dir "$we_assets" "$we_id" &
 sleep 3
@@ -73,15 +73,15 @@ for pid in $old_pids; do
   kill -9 "\$pid" 2>/dev/null
 done
 INNEREOF
-  chmod +x "$PIIXIDENT_RUNTIME/start-we.sh"
-  nohup setsid "$PIIXIDENT_RUNTIME/start-we.sh" </dev/null >/dev/null 2>&1 &
+  chmod +x "$SKWD_RUNTIME/start-we.sh"
+  nohup setsid "$SKWD_RUNTIME/start-we.sh" </dev/null >/dev/null 2>&1 &
 fi
 
 # Use WE preview image for matugen theming
 preview=$(find "$we_dir/$we_id" -maxdepth 1 -iname 'preview.*' -type f 2>/dev/null | head -1)
 if [ -n "$preview" ]; then
   cp "$preview" "$wall_dir/wallpaper.jpg"
-  has_cmd matugen && matugen image -t "$matugen_scheme" "$preview"
+  has_cmd matugen && matugen -c "$SKWD_MATUGEN_CONFIG" image -t "$matugen_scheme" "$preview"
   "$(dirname "$0")/apply-niri-colors"
   "$(dirname "$0")/generate-omp-theme"
 fi

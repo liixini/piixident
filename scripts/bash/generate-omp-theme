@@ -4,8 +4,8 @@
 . "$(dirname "$0")/lib.sh"
 require_cmd python3
 
-COLORS="$PIIXIDENT_CACHE/colors.json"
-OUTPUT="$PIIXIDENT_CONFIG/ext/omp/piixident.omp.json"
+COLORS="$SKWD_CACHE/colors.json"
+OUTPUT="$SKWD_CONFIG/ext/omp/skwd.omp.json"
 
 if [ ! -f "$COLORS" ]; then
   echo "No colors.json found" >&2

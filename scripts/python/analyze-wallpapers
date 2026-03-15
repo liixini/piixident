@@ -11,18 +11,19 @@ import requests
 from pathlib import Path
 import hashlib
 
-import piixconfig
+import skwdconfig
 
 # Path constants and Ollama config
-THUMB_DIR = Path.home() / ".cache/piixident/wallpaper/thumbs"
-WE_THUMB_DIR = Path.home() / ".cache/piixident/wallpaper/we-thumbs"
-VIDEO_THUMB_DIR = Path.home() / ".cache/piixident/wallpaper/video-thumbs"
-COLORS_FILE = Path.home() / ".cache/piixident/wallpaper/colors.json"
-TAGS_FILE = Path.home() / ".cache/piixident/wallpaper/tags.json"
-TRIGGER_FILE = Path.home() / ".cache/piixident/wallpaper/analysis-trigger"
-LAST_RUN_FILE = Path.home() / ".cache/piixident/wallpaper/analysis-lastrun"
-OLLAMA_URL = piixconfig.ollama_url() + "/api/generate"
-MODEL = piixconfig.ollama_model()
+_cache = skwdconfig.cache_dir() / "wallpaper"
+THUMB_DIR = _cache / "thumbs"
+WE_THUMB_DIR = _cache / "we-thumbs"
+VIDEO_THUMB_DIR = _cache / "video-thumbs"
+COLORS_FILE = _cache / "colors.json"
+TAGS_FILE = _cache / "tags.json"
+TRIGGER_FILE = _cache / "analysis-trigger"
+LAST_RUN_FILE = _cache / "analysis-lastrun"
+OLLAMA_URL = skwdconfig.ollama_url() + "/api/generate"
+MODEL = skwdconfig.ollama_model()
 
 THUMB_SIZE = (320, 180)
 

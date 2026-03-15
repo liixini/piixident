@@ -3,9 +3,8 @@
 
 . "$(dirname "$0")/lib.sh"
 
-TAG_LOG="$PIIXIDENT_CACHE/tag-wallpapers.log"
-COLOR_LOG="$PIIXIDENT_CACHE/analyze-wallpaper-colors.log"
-HOME_DIR="$HOME"
+TAG_LOG="$SKWD_CACHE/tag-wallpapers.log"
+COLOR_LOG="$SKWD_CACHE/analyze-wallpaper-colors.log"
 
 # ANSI color codes
 GREEN='\033[0;32m'
@@ -88,8 +87,8 @@ while true; do
 
   # Cache file counts
   echo -e "${YELLOW}Cache Status:${RESET}"
-  [ -f "$HOME_DIR/.cache/piixident/wallpaper/tags.json" ] && tags_count=$(jq 'keys | length' "$HOME_DIR/.cache/piixident/wallpaper/tags.json" 2>/dev/null || echo 0) || tags_count=0
-  [ -f "$HOME_DIR/.cache/piixident/wallpaper/colors.json" ] && colors_count=$(jq 'keys | length' "$HOME_DIR/.cache/piixident/wallpaper/colors.json" 2>/dev/null || echo 0) || colors_count=0
+  [ -f "$SKWD_CACHE/wallpaper/tags.json" ] && tags_count=$(jq 'keys | length' "$SKWD_CACHE/wallpaper/tags.json" 2>/dev/null || echo 0) || tags_count=0
+  [ -f "$SKWD_CACHE/wallpaper/colors.json" ] && colors_count=$(jq 'keys | length' "$SKWD_CACHE/wallpaper/colors.json" 2>/dev/null || echo 0) || colors_count=0
 
   echo "  Tagged wallpapers: $tags_count"
   echo "  Analyzed colors: $colors_count"

@@ -23,13 +23,13 @@ from pathlib import Path
 
 # Inject venv site-packages for syncedlyrics dependency
 import glob
-SCRIPT_DIR = Path(__file__).resolve().parent
-_venv_sites = glob.glob(str(SCRIPT_DIR.parent / ".venv/lib/python3.*/site-packages"))
+import skwdconfig
+_venv_sites = glob.glob(str(skwdconfig.config_dir() / ".venv/lib/python3.*/site-packages"))
 if _venv_sites:
     sys.path.insert(0, _venv_sites[0])
 
 # Lyrics cache directory
-CACHE_DIR = Path.home() / ".cache" / "ytm-lyrics"
+CACHE_DIR = skwdconfig.cache_dir() / "ytm-lyrics"
 CACHE_DIR.mkdir(parents=True, exist_ok=True)
 
 import syncedlyrics
@@ -37,7 +37,7 @@ import requests
 
 # lrclib.net API constants
 LRCLIB_API = "https://lrclib.net/api"
-LRCLIB_HEADERS = {"User-Agent": "piixident-lyrics/1.0 (https://github.com)"}
+LRCLIB_HEADERS = {"User-Agent": "skwd-lyrics/1.0 (https://github.com)"}
 
 
 def log(msg):
@@ -261,8 +261,7 @@ def get_lyrics_for_track(artist, title):
 
 
 # Query playerctl for current track metadata (prefer configured player over browsers)
-import piixconfig
-PREFERRED_PLAYER = piixconfig.get("preferredPlayer", "spotify")
+PREFERRED_PLAYER = skwdconfig.get("preferredPlayer", "spotify")
 
 
 def _query_playerctl(player_arg):

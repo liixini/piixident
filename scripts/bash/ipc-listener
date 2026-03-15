@@ -1,10 +1,10 @@
 #!/bin/bash
-# Named-pipe IPC listener: reads commands from $PIIXIDENT_RUNTIME/cmd FIFO
+# Named-pipe IPC listener: reads commands from $SKWD_RUNTIME/cmd FIFO
 
 . "$(dirname "$0")/lib.sh"
 
-FIFO="$PIIXIDENT_RUNTIME/cmd"
-PIDFILE="$PIIXIDENT_RUNTIME/cmd.pid"
+FIFO="$SKWD_RUNTIME/cmd"
+PIDFILE="$SKWD_RUNTIME/cmd.pid"
 
 # Kill previous listener if running
 if [ -f "$PIDFILE" ]; then

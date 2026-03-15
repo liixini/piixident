@@ -3,8 +3,10 @@
 import json
 from pathlib import Path
 
+import skwdconfig
+
 # Tags database path
-TAGS_FILE = Path.home() / ".cache" / "piixident" / "wallpaper" / "tags.json"
+TAGS_FILE = skwdconfig.cache_dir() / "wallpaper" / "tags.json"
 
 # Load existing tags
 with open(TAGS_FILE) as f:

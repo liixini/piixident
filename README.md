@@ -125,7 +125,7 @@ bind = $mainMod, R, exec, echo applauncher > ${XDG_RUNTIME_DIR}/skwd/cmd
 
 ```
 
-Commands: `applauncher`, `powermenu`, `wallpaper`, `smarthome`, `toggleBar`, `notifications`, `switcherOpen`, `switcherNext`, `switcherPrev`, `switcherConfirm`, `switcherCancel`, `switcherClose`.
+Commands: `lock`, `powermenu`, `launcher` (alias: `applauncher`), `toggleBar`, `wallpaper`, `smarthome`, `notifications`, `switcherOpen`, `switcherNext`, `switcherPrev`, `switcherConfirm`, `switcherCancel`, `switcherClose`.
 
 ### Provided for convenience is a full list of Niri keybinds as well as useful start configuration and layer rules:
 ```
@@ -185,7 +185,6 @@ Mod+Shift+L hotkey-overlay-title="Toggle Power Menu" { spawn-sh "echo powermenu 
 Mod+T hotkey-overlay-title="Wallpaper Selector" { spawn-sh "echo wallpaper > ${XDG_RUNTIME_DIR}/skwd/cmd"; }
 Mod+D hotkey-overlay-title="Toggle Top Bar" { spawn-sh "echo toggleBar > ${XDG_RUNTIME_DIR}/skwd/cmd"; }
 Mod+Shift+S hotkey-overlay-title="Toggle Smart Home" { spawn-sh "echo smarthome > ${XDG_RUNTIME_DIR}/skwd/cmd"; }
-Mod+Tab hotkey-overlay-title="Workspace Switcher" { spawn-sh "echo workspaces > ${XDG_RUNTIME_DIR}/skwd/cmd"; }
 Alt+Tab hotkey-overlay-title="Window Switcher" { spawn-sh "echo switcherNext > ${XDG_RUNTIME_DIR}/skwd/cmd"; }
 Alt+Shift+Tab { spawn-sh "echo switcherPrev > ${XDG_RUNTIME_DIR}/skwd/cmd"; }
 Alt+Return { spawn-sh "echo switcherConfirm > ${XDG_RUNTIME_DIR}/skwd/cmd"; }
@@ -208,7 +207,6 @@ bind = $mainMod, L, exec, echo lock > ${XDG_RUNTIME_DIR}/skwd/cmd
 bind = $mainMod, escape, exec, echo powermenu > ${XDG_RUNTIME_DIR}/skwd/cmd
 bind = $mainMod SHIFT, L, exec, echo powermenu > ${XDG_RUNTIME_DIR}/skwd/cmd
 bind = $mainMod SHIFT, S, exec, echo smarthome > ${XDG_RUNTIME_DIR}/skwd/cmd
-bind = $mainMod, TAB, exec, echo workspaces > ${XDG_RUNTIME_DIR}/skwd/cmd
 bind = ALT, TAB, exec, echo switcherNext > ${XDG_RUNTIME_DIR}/skwd/cmd
 bind = ALT SHIFT, TAB, exec, echo switcherPrev > ${XDG_RUNTIME_DIR}/skwd/cmd
 bind = ALT, RETURN, exec, echo switcherConfirm > ${XDG_RUNTIME_DIR}/skwd/cmd
@@ -241,7 +239,6 @@ Every major component can be turned off in `data/config.json` under `components`
   "appLauncher": true,
   "wallpaperSelector": true,
   "windowSwitcher": true,
-  "workspaceSwitcher": true,
   "powerMenu": true,
   "smartHome": true,
     "notifications": true

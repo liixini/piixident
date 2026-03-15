@@ -5,7 +5,7 @@
 
 action="$1"; shift
 
-case "$PIIXIDENT_COMPOSITOR" in
+case "$SKWD_COMPOSITOR" in
 
   # Niri compositor actions
   niri)
@@ -62,7 +62,7 @@ case "$PIIXIDENT_COMPOSITOR" in
     ;;
 
   *)
-    echo "wm-action: unsupported compositor '$PIIXIDENT_COMPOSITOR'" >&2
+    echo "wm-action: unsupported compositor '$SKWD_COMPOSITOR'" >&2
     echo "  Set 'compositor' in config.json to: niri, hyprland, or sway" >&2
     exit 1
     ;;

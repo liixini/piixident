@@ -8,18 +8,17 @@ import json
 import shutil
 import subprocess
 from pathlib import Path
+import skwdconfig
 
 # Cache and thumbnail paths
-CACHE_FILE = Path.home() / ".cache/piixident/app-launcher/list.jsonl"
-THUMB_DIR = Path.home() / ".cache/piixident/app-launcher/thumbs"
+_cache = skwdconfig.cache_dir() / "app-launcher"
+CACHE_FILE = _cache / "list.jsonl"
+THUMB_DIR = _cache / "thumbs"
 
-# Steam config from piixconfig
-import piixconfig
-
-STEAM_DIR = piixconfig.steam_dir()
+STEAM_DIR = skwdconfig.steam_dir()
 STEAM_CACHE = STEAM_DIR / "appcache" / "librarycache"
 THUMB_SIZE = 256
-BG_CONFIG = Path.home() / ".config/piixident/data/apps.json"
+BG_CONFIG = skwdconfig.config_dir() / "data" / "apps.json"
 
 # Desktop file search directories
 DESKTOP_DIRS = [

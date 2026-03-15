@@ -2,29 +2,31 @@
 # Shared library: environment variables, config helpers, command checks, compositor detection
 
 # Standard paths (XDG-aware)
-export PIIXIDENT_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/piixident"
-export PIIXIDENT_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/piixident"
-export PIIXIDENT_RUNTIME="${XDG_RUNTIME_DIR:-/tmp}/piixident"
-export PIIXIDENT_CFG="$PIIXIDENT_CONFIG/data/config.json"
+export SKWD_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/skwd"
+export SKWD_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/skwd"
+export SKWD_RUNTIME="${XDG_RUNTIME_DIR:-/tmp}/skwd"
+export SKWD_INSTALL="${SKWD_INSTALL:-$SKWD_CONFIG}"
+export SKWD_CFG="$SKWD_CONFIG/data/config.json"
+export SKWD_MATUGEN_CONFIG="$SKWD_CACHE/matugen-config.toml"
 
 # Ensure runtime and cache directories exist
-mkdir -p "$PIIXIDENT_RUNTIME" 2>/dev/null
-mkdir -p "$PIIXIDENT_CACHE" 2>/dev/null
-mkdir -p "$PIIXIDENT_CACHE/wallpaper" 2>/dev/null
-mkdir -p "$PIIXIDENT_CACHE/app-launcher" 2>/dev/null
+mkdir -p "$SKWD_RUNTIME" 2>/dev/null
+mkdir -p "$SKWD_CACHE" 2>/dev/null
+mkdir -p "$SKWD_CACHE/wallpaper" 2>/dev/null
+mkdir -p "$SKWD_CACHE/app-launcher" 2>/dev/null
 
 # Seed cache files that QML components expect
-[ -f "$PIIXIDENT_CACHE/bar-state" ] || echo "true" > "$PIIXIDENT_CACHE/bar-state" 2>/dev/null
-[ -f "$PIIXIDENT_CACHE/colors.json" ] || echo '{}' > "$PIIXIDENT_CACHE/colors.json" 2>/dev/null
-[ -f "$PIIXIDENT_CACHE/wallpaper/tags.json" ] || echo '{}' > "$PIIXIDENT_CACHE/wallpaper/tags.json" 2>/dev/null
-[ -f "$PIIXIDENT_CACHE/wallpaper/colors.json" ] || echo '{}' > "$PIIXIDENT_CACHE/wallpaper/colors.json" 2>/dev/null
-[ -f "$PIIXIDENT_CACHE/wallpaper/matugen-colors.json" ] || echo '{}' > "$PIIXIDENT_CACHE/wallpaper/matugen-colors.json" 2>/dev/null
-[ -f "$PIIXIDENT_CACHE/app-launcher/freq.json" ] || echo '{}' > "$PIIXIDENT_CACHE/app-launcher/freq.json" 2>/dev/null
+[ -f "$SKWD_CACHE/bar-state" ] || echo "true" > "$SKWD_CACHE/bar-state" 2>/dev/null
+[ -f "$SKWD_CACHE/colors.json" ] || echo '{}' > "$SKWD_CACHE/colors.json" 2>/dev/null
+[ -f "$SKWD_CACHE/wallpaper/tags.json" ] || echo '{}' > "$SKWD_CACHE/wallpaper/tags.json" 2>/dev/null
+[ -f "$SKWD_CACHE/wallpaper/colors.json" ] || echo '{}' > "$SKWD_CACHE/wallpaper/colors.json" 2>/dev/null
+[ -f "$SKWD_CACHE/wallpaper/matugen-colors.json" ] || echo '{}' > "$SKWD_CACHE/wallpaper/matugen-colors.json" 2>/dev/null
+[ -f "$SKWD_CACHE/app-launcher/freq.json" ] || echo '{}' > "$SKWD_CACHE/app-launcher/freq.json" 2>/dev/null
 
 # Read a jq path from config.json, expand ~ to $HOME
 cfg_get() {
   local val
-  val=$(jq -r "$1" "$PIIXIDENT_CFG" 2>/dev/null)
+  val=$(jq -r "$1" "$SKWD_CFG" 2>/dev/null)
   [ "$val" = "null" ] && val=""
   echo "${val/#\~/$HOME}"
 }
@@ -36,7 +38,7 @@ require_cmd() {
     command -v "$cmd" >/dev/null 2>&1 || missing+=("$cmd")
   done
   if [ ${#missing[@]} -gt 0 ]; then
-    echo "piixident: missing required commands: ${missing[*]}" >&2
+    echo "skwd: missing required commands: ${missing[*]}" >&2
     echo "  Install them and try again." >&2
     exit 1
   fi
@@ -50,7 +52,7 @@ has_cmd() {
 # Auto-detect compositor from config or running process
 detect_compositor() {
   local configured
-  configured=$(jq -r '.compositor // ""' "$PIIXIDENT_CFG" 2>/dev/null)
+  configured=$(jq -r '.compositor // ""' "$SKWD_CFG" 2>/dev/null)
   if [ -n "$configured" ] && [ "$configured" != "null" ]; then
     echo "$configured"
     return
@@ -66,7 +68,7 @@ detect_compositor() {
   fi
 }
 
-export PIIXIDENT_COMPOSITOR="${PIIXIDENT_COMPOSITOR:-$(detect_compositor)}"
+export SKWD_COMPOSITOR="${SKWD_COMPOSITOR:-$(detect_compositor)}"
 
 # GPU vendor detection (nvidia/amd/intel)
 detect_gpu() {

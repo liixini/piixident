@@ -3,220 +3,24 @@
 set -e
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
-CONFIG_FILE="$PROJECT_DIR/data/config.json"
+SKWD_CONFIG="${XDG_CONFIG_HOME:-$HOME/.config}/skwd"
+CONFIG_FILE="$SKWD_CONFIG/data/config.json"
 
 echo "╔══════════════════════════════════════════════════════════════════════╗"
-echo "║        Piixident — Initial Setup with fancy ASCII art! Tihi!         ║"
+echo "║        SKWD — Initial Setup with fancy ASCII art! Tihi!              ║"
 echo "╚══════════════════════════════════════════════════════════════════════╝"
 echo ""
 
-# Check required dependencies
-
-declare -A ARCH_PKG=(
-  [jq]="jq"
-  [python3]="python"
-  [quickshell]="quickshell-git"
-  [matugen]="matugen-bin"
-  [ffmpeg]="ffmpeg"
-  [playerctl]="playerctl"
-  [cava]="cava"
-  [notify-send]="libnotify"
-  [awww]="awww"
-  [mpvpaper]="mpvpaper"
-  [grim]="grim"
-  [parallel]="parallel"
-  [linux-wallpaperengine]="linux-wallpaperengine-git"
-  [ollama]="ollama"
-)
-
-declare -A FEDORA_PKG=(
-  [jq]="jq"
-  [python3]="python3"
-  [quickshell]="quickshell"
-  [matugen]="matugen"
-  [ffmpeg]="ffmpeg"
-  [playerctl]="playerctl"
-  [cava]="cava"
-  [notify-send]="libnotify"
-  [awww]="awww"
-  [mpvpaper]="mpvpaper"
-  [grim]="grim"
-  [parallel]="parallel"
-  [linux-wallpaperengine]="linux-wallpaperengine"
-  [ollama]="ollama"
-)
-
-COPR_PKGS=(
-  "quickshell:outfoxxed/quickshell"
-)
-
-AUR_PKGS=("quickshell-git" "matugen-bin" "cava" "awww" "mpvpaper" "linux-wallpaperengine-git")
-
-is_aur_pkg() {
-  local pkg="$1"
-  for a in "${AUR_PKGS[@]}"; do
-    [[ "$a" == "$pkg" ]] && return 0
-  done
-  return 1
-}
-
-detect_aur_helper() {
-  for helper in yay paru; do
-    command -v "$helper" >/dev/null 2>&1 && echo "$helper" && return
-  done
-}
-
-is_arch() {
-  [[ -f /etc/arch-release ]] || command -v pacman >/dev/null 2>&1
-}
-
-is_fedora() {
-  [[ -f /etc/fedora-release ]] || (command -v dnf >/dev/null 2>&1 && [[ -f /etc/redhat-release ]])
-}
-
-install_fedora_packages() {
-  local copr_enabled=() pkgs=()
-  for pkg in "$@"; do
-    # Check if this package needs a COPR repo
-    for entry in "${COPR_PKGS[@]}"; do
-      local cpkg="${entry%%:*}"
-      local crepo="${entry#*:}"
-      if [[ "$pkg" == "$cpkg" ]] && ! printf '%s\n' "${copr_enabled[@]}" | grep -qx "$crepo" 2>/dev/null; then
-        echo "  Enabling COPR repo: $crepo"
-        sudo dnf copr enable -y "$crepo"
-        copr_enabled+=("$crepo")
-      fi
-    done
-    pkgs+=("$pkg")
-  done
-
-  if [[ ${#pkgs[@]} -gt 0 ]]; then
-    echo "  Installing via dnf: ${pkgs[*]}"
-    sudo dnf install -y "${pkgs[@]}"
-  fi
-}
-
-install_arch_packages() {
-  local official=() aur=()
-  for pkg in "$@"; do
-    if is_aur_pkg "$pkg"; then
-      aur+=("$pkg")
-    else
-      official+=("$pkg")
-    fi
-  done
-
-  if [[ ${#official[@]} -gt 0 ]]; then
-    echo "  Installing from official repos: ${official[*]}"
-    sudo pacman -S --needed --noconfirm "${official[@]}"
-  fi
-
-  if [[ ${#aur[@]} -gt 0 ]]; then
-    local aur_helper
-    aur_helper=$(detect_aur_helper)
-    if [[ -z "$aur_helper" ]]; then
-      echo "  AUR packages needed but no AUR helper (yay/paru) found."
-      echo "  Please install one of: yay, paru — then re-run setup."
-      echo "  AUR packages: ${aur[*]}"
-      return 1
-    fi
-    echo "  Installing from AUR (via $aur_helper): ${aur[*]}"
-    "$aur_helper" -S --needed --noconfirm "${aur[@]}"
-  fi
-}
-
+# Check required commands
 CORE_CMDS=(jq python3 quickshell)
-CLI_CMDS=(matugen ffmpeg playerctl cava notify-send awww mpvpaper grim parallel)
-OPTIONAL_CMDS=(ollama linux-wallpaperengine)
-
-echo "Checking dependencies..."
 missing=()
 for cmd in "${CORE_CMDS[@]}"; do
   command -v "$cmd" >/dev/null 2>&1 || missing+=("$cmd")
 done
-
-optional_missing=()
-for cmd in "${CLI_CMDS[@]}" "${OPTIONAL_CMDS[@]}"; do
-  command -v "$cmd" >/dev/null 2>&1 || optional_missing+=("$cmd")
-done
-
-if [[ ${#missing[@]} -eq 0 && ${#optional_missing[@]} -eq 0 ]]; then
-  echo "  All dependencies found!"
+if [[ ${#missing[@]} -gt 0 ]]; then
+  echo "  WARNING: Missing required commands: ${missing[*]}"
+  echo "  Install them before running skwd."
   echo ""
-else
-  # Pick the right package map and installer for the distro
-  installer=""
-  declare -A PKG_MAP
-  if is_arch; then
-    installer="arch"
-    for k in "${!ARCH_PKG[@]}"; do PKG_MAP[$k]="${ARCH_PKG[$k]}"; done
-  elif is_fedora; then
-    installer="fedora"
-    for k in "${!FEDORA_PKG[@]}"; do PKG_MAP[$k]="${FEDORA_PKG[$k]}"; done
-  fi
-
-  if [[ -n "$installer" ]]; then
-    echo ""
-    read -rp "  Attempt automatic dependency installation? [Y/n] " auto_ans
-    if [[ "$auto_ans" == "n" || "$auto_ans" == "N" ]]; then
-      if [[ ${#missing[@]} -gt 0 ]]; then
-        echo "  MISSING (required): ${missing[*]}"
-        echo "  Install these packages before continuing."
-      fi
-      if [[ ${#optional_missing[@]} -gt 0 ]]; then
-        echo "  Optional (for full features): ${optional_missing[*]}"
-      fi
-      echo ""
-    else
-
-    missing_pkgs=()
-    optional_pkgs=()
-    for cmd in "${missing[@]}"; do
-      [[ -n "${PKG_MAP[$cmd]:-}" ]] && missing_pkgs+=("${PKG_MAP[$cmd]}")
-    done
-    for cmd in "${optional_missing[@]}"; do
-      [[ -n "${PKG_MAP[$cmd]:-}" ]] && optional_pkgs+=("${PKG_MAP[$cmd]}")
-    done
-
-    if [[ ${#missing_pkgs[@]} -gt 0 ]]; then
-      echo "  MISSING (required): ${missing[*]}"
-      echo ""
-      read -rp "  Install required packages now? [Y/n] " ans
-      if [[ "$ans" != "n" && "$ans" != "N" ]]; then
-        install_${installer}_packages "${missing_pkgs[@]}"
-        echo ""
-      else
-        echo "  Skipped. Install these before running piixident: ${missing_pkgs[*]}"
-        echo ""
-      fi
-    fi
-
-    if [[ ${#optional_pkgs[@]} -gt 0 ]]; then
-      echo "  MISSING (optional/CLI): ${optional_missing[*]}"
-      echo ""
-      read -rp "  Install optional packages now? [y/N] " ans
-      if [[ "$ans" == "y" || "$ans" == "Y" ]]; then
-        install_${installer}_packages "${optional_pkgs[@]}"
-        echo ""
-      else
-        echo "  Skipped optional packages."
-        echo ""
-      fi
-    fi
-
-    fi
-  else
-    # Unsupported distro — just report what's missing
-    if [[ ${#missing[@]} -gt 0 ]]; then
-      echo "  MISSING: ${missing[*]}"
-      echo "  Install these packages before continuing."
-      echo ""
-    fi
-    if [[ ${#optional_missing[@]} -gt 0 ]]; then
-      echo "  Optional (for full features): ${optional_missing[*]}"
-      echo ""
-    fi
-  fi
 fi
 
 # Auto-detect compositor (niri, hyprland, sway)
@@ -293,21 +97,23 @@ fi
 echo ""
 
 # Create required directories
-mkdir -p "$HOME/.cache/piixident"
-mkdir -p "$HOME/.cache/piixident/wallpaper"
-mkdir -p "$HOME/.cache/piixident/app-launcher"
+SKWD_CACHE="${XDG_CACHE_HOME:-$HOME/.cache}/skwd"
+mkdir -p "$SKWD_CACHE"
+mkdir -p "$SKWD_CACHE/wallpaper"
+mkdir -p "$SKWD_CACHE/app-launcher"
 mkdir -p "$HOME/wallpaper" 2>/dev/null || true
-mkdir -p "${XDG_RUNTIME_DIR:-/tmp}/piixident" 2>/dev/null || true
+mkdir -p "${XDG_RUNTIME_DIR:-/tmp}/skwd" 2>/dev/null || true
 
 # Seed cache files that QML components expect (avoids warnings on first run)
-[ -f "$HOME/.cache/piixident/bar-state" ] || echo "true" > "$HOME/.cache/piixident/bar-state"
-[ -f "$HOME/.cache/piixident/colors.json" ] || echo '{}' > "$HOME/.cache/piixident/colors.json"
-[ -f "$HOME/.cache/piixident/wallpaper/tags.json" ] || echo '{}' > "$HOME/.cache/piixident/wallpaper/tags.json"
-[ -f "$HOME/.cache/piixident/wallpaper/colors.json" ] || echo '{}' > "$HOME/.cache/piixident/wallpaper/colors.json"
-[ -f "$HOME/.cache/piixident/wallpaper/matugen-colors.json" ] || echo '{}' > "$HOME/.cache/piixident/wallpaper/matugen-colors.json"
-[ -f "$HOME/.cache/piixident/app-launcher/freq.json" ] || echo '{}' > "$HOME/.cache/piixident/app-launcher/freq.json"
+[ -f "$SKWD_CACHE/bar-state" ] || echo "true" > "$SKWD_CACHE/bar-state"
+[ -f "$SKWD_CACHE/colors.json" ] || echo '{}' > "$SKWD_CACHE/colors.json"
+[ -f "$SKWD_CACHE/wallpaper/tags.json" ] || echo '{}' > "$SKWD_CACHE/wallpaper/tags.json"
+[ -f "$SKWD_CACHE/wallpaper/colors.json" ] || echo '{}' > "$SKWD_CACHE/wallpaper/colors.json"
+[ -f "$SKWD_CACHE/wallpaper/matugen-colors.json" ] || echo '{}' > "$SKWD_CACHE/wallpaper/matugen-colors.json"
+[ -f "$SKWD_CACHE/app-launcher/freq.json" ] || echo '{}' > "$SKWD_CACHE/app-launcher/freq.json"
 
 # Create config.json from example if missing
+mkdir -p "$SKWD_CONFIG/data"
 if [ ! -f "$CONFIG_FILE" ]; then
   cp "$PROJECT_DIR/data/config.json.example" "$CONFIG_FILE"
   # Patch in auto-detected values
@@ -330,48 +136,100 @@ if [ ! -f "$CONFIG_FILE" ]; then
 fi
 
 # Create secrets.json from example if missing
-if [ ! -f "$PROJECT_DIR/data/secrets.json" ]; then
-  cp "$PROJECT_DIR/data/secrets.json.example" "$PROJECT_DIR/data/secrets.json"
+if [ ! -f "$SKWD_CONFIG/data/secrets.json" ]; then
+  cp "$PROJECT_DIR/data/secrets.json.example" "$SKWD_CONFIG/data/secrets.json"
   echo "Created data/secrets.json from example"
 fi
 
 # Create apps.json from example if missing
-if [ ! -f "$PROJECT_DIR/data/apps.json" ]; then
-  cp "$PROJECT_DIR/data/apps.json.example" "$PROJECT_DIR/data/apps.json"
+if [ ! -f "$SKWD_CONFIG/data/apps.json" ]; then
+  cp "$PROJECT_DIR/data/apps.json.example" "$SKWD_CONFIG/data/apps.json"
   echo "Created data/apps.json from example"
 fi
 
 echo ""
 # Set up Python venv and install dependencies
-VENV_DIR="$PROJECT_DIR/scripts/.venv"
+VENV_DIR="$SKWD_CONFIG/.venv"
 if [ ! -d "$VENV_DIR" ]; then
   echo "Creating Python virtual environment..."
   python3 -m venv "$VENV_DIR"
   "$VENV_DIR/bin/pip" install -q -r "$PROJECT_DIR/scripts/requirements.txt"
   echo "Installed Python dependencies."
 else
-  echo "Python venv already exists at scripts/.venv"
+  echo "Python venv already exists at $VENV_DIR"
 fi
 
-# Ollama setup
-if ! command -v ollama >/dev/null 2>&1; then
-  echo ""
-  read -rp "Install Ollama (local offline LLM) for LLM wallpaper analysis? It works better than the python script and it is mandatory for the tag search feature [y/N] " ollama_ans
-  if [[ "$ollama_ans" == "y" || "$ollama_ans" == "Y" ]]; then
-    if [[ -n "$installer" ]]; then
-      install_${installer}_packages "${PKG_MAP[ollama]}"
-    else
-      echo "  Could not auto-install ollama on this distro. Install it manually."
-    fi
-  fi
+# Generate matugen config from template + config.json integrations
+MATUGEN_TEMPLATE="$PROJECT_DIR/ext/matugen/config.toml.in"
+MATUGEN_CONFIG="$SKWD_CACHE/matugen-config.toml"
+if [ -f "$MATUGEN_TEMPLATE" ]; then
+  # Read integration output paths from config.json (empty string = disabled)
+  int_kitty=$(jq -r '.integrations.kitty // ""' "$CONFIG_FILE")
+  int_kde=$(jq -r '.integrations.kde // ""' "$CONFIG_FILE")
+  int_vscode=$(jq -r '.integrations.vscode // ""' "$CONFIG_FILE")
+  int_vesktop=$(jq -r '.integrations.vesktop // ""' "$CONFIG_FILE")
+  int_zen=$(jq -r '.integrations.zen // ""' "$CONFIG_FILE")
+  int_spicetify=$(jq -r '.integrations.spicetify // ""' "$CONFIG_FILE")
+  int_spicetify_css=$(jq -r '.integrations.spicetifyCss // ""' "$CONFIG_FILE")
+  int_yazi=$(jq -r '.integrations.yazi // ""' "$CONFIG_FILE")
+  int_qt6ct=$(jq -r '.integrations.qt6ct // ""' "$CONFIG_FILE")
+
+  sed \
+    -e "s|@SKWD_INSTALL@|$PROJECT_DIR|g" \
+    -e "s|@OUTPUT_KITTY@|$int_kitty|g" \
+    -e "s|@OUTPUT_KDE@|$int_kde|g" \
+    -e "s|@OUTPUT_VSCODE@|$int_vscode|g" \
+    -e "s|@OUTPUT_VESKTOP@|$int_vesktop|g" \
+    -e "s|@OUTPUT_ZEN@|$int_zen|g" \
+    -e "s|@OUTPUT_SPICETIFY@|$int_spicetify|g" \
+    -e "s|@OUTPUT_SPICETIFYCSS@|$int_spicetify_css|g" \
+    -e "s|@OUTPUT_YAZI@|$int_yazi|g" \
+    -e "s|@OUTPUT_QT6CT@|$int_qt6ct|g" \
+    "$MATUGEN_TEMPLATE" > "$MATUGEN_CONFIG.tmp"
+
+  # Remove template blocks where output_path is empty
+  python3 -c "
+import re, sys
+text = open(sys.argv[1]).read()
+# Remove [templates.X] blocks where output_path is empty
+text = re.sub(r'\n\[templates\.\w+\]\ninput_path = \"[^\"]*\"\noutput_path = \"\"\n', '\n', text)
+open(sys.argv[1], 'w').write(text)
+" "$MATUGEN_CONFIG.tmp"
+
+  mv "$MATUGEN_CONFIG.tmp" "$MATUGEN_CONFIG"
+  echo "Generated matugen config at $MATUGEN_CONFIG"
 fi
 
+# Wire up app integrations (idempotent — safe to re-run)
+echo ""
+echo "Wiring app integrations..."
+
+# Kitty: ensure includes point to skwd-generated theme files
+KITTY_CONF="${XDG_CONFIG_HOME:-$HOME/.config}/kitty/kitty.conf"
+if [ -f "$KITTY_CONF" ]; then
+  grep -q 'include skwd-theme.conf' "$KITTY_CONF" || \
+    sed -i '1i include skwd-theme.conf' "$KITTY_CONF"
+  grep -q 'include skwd-tabs.conf' "$KITTY_CONF" || \
+    sed -i '/include skwd-theme.conf/a include skwd-tabs.conf' "$KITTY_CONF"
+  echo "  Kitty: includes wired"
+fi
+
+# Oh My Posh: symlink theme into standard location
+OMP_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/oh-my-posh"
+OMP_THEME="$PROJECT_DIR/ext/omp/skwd.omp.json"
+if command -v oh-my-posh >/dev/null 2>&1 || [ -x "$HOME/.local/bin/oh-my-posh" ]; then
+  mkdir -p "$OMP_DIR"
+  ln -sfn "$OMP_THEME" "$OMP_DIR/skwd.omp.json"
+  echo "  OMP: theme linked at $OMP_DIR/skwd.omp.json"
+fi
+
+# Ollama model setup
 if command -v ollama >/dev/null 2>&1; then
   if ! ollama list 2>/dev/null | grep -q "gemma3:4b"; then
     echo ""
-    read -rp "Pull the gemma3:4b model for Ollama? This is required for LLM computer vision. You can say no and install your own model if you wish. [y/N] " model_ans
+    read -rp "Install the gemma3:4b model for Ollama? This light-weight model or any other computer vision model is required for LLM computer vision (reading wallpaper content to create tags like dragon, ocean, cozy etc.) [y/N] " model_ans
     if [[ "$model_ans" == "y" || "$model_ans" == "Y" ]]; then
-      echo "  Pulling gemma3:4b — this may take a while..."
+      echo "  Pulling gemma3:4b - this may take a while..."
       ollama pull gemma3:4b
       echo "  Done."
     fi
@@ -380,22 +238,7 @@ if command -v ollama >/dev/null 2>&1; then
   fi
 fi
 
-# Wallpaper Engine setup — offer to install linux-wallpaperengine if not present
-if ! command -v linux-wallpaperengine >/dev/null 2>&1; then
-  echo ""
-  echo "  linuxwallpaperengine lets you use Steam Workshop wallpapers."
-  echo "  NOTE: You must own Wallpaper Engine on Steam and have it installed before this will work."
-  echo ""
-  read -rp "Install linux-wallpaperengine? [y/N] " lwe_ans
-  if [[ "$lwe_ans" == "y" || "$lwe_ans" == "Y" ]]; then
-    if [[ -n "$installer" ]]; then
-      install_${installer}_packages "${PKG_MAP[linux-wallpaperengine]}"
-    else
-      echo "  Could not auto-install on this distro. Install it manually."
-    fi
-  fi
-fi
-
+# Wallpaper Engine path check
 if command -v linux-wallpaperengine >/dev/null 2>&1; then
   if [[ -z "$we_assets" ]]; then
     echo ""
@@ -407,7 +250,7 @@ if command -v linux-wallpaperengine >/dev/null 2>&1; then
 fi
 
 # Create IPC named pipe
-RUNTIME="${XDG_RUNTIME_DIR:-/tmp}/piixident"
+RUNTIME="${XDG_RUNTIME_DIR:-/tmp}/skwd"
 mkdir -p "$RUNTIME"
 if [ ! -p "$RUNTIME/cmd" ]; then
   mkfifo -m 600 "$RUNTIME/cmd"
@@ -417,9 +260,9 @@ fi
 echo ""
 echo "Initial setup complete, now you need to customise the settings in config.json and add some wallpapers to ~/wallpaper/"
 echo "Next steps:"
-echo "  1. Edit data/config.json to set your city, paths, etc."
+echo "  1. Edit $SKWD_CONFIG/data/config.json to set your city, paths, etc."
 echo "  2. Place wallpapers in ~/wallpaper/"
-echo "  3. Run: quickshell -p ~/.config/piixident"
+echo "  3. Run: skwd  (or quickshell -p $PROJECT_DIR)"
 echo ""
 echo "Optional:"
 echo "  - Edit data/secrets.json for Home Assistant integration"
@@ -427,4 +270,5 @@ echo "  - Install matugen for dynamic color schemes"
 echo ""
 echo "IPC commands: echo 'launcher' > ${RUNTIME}/cmd"
 echo "Supported: lock, powermenu, launcher, toggleBar, wallpaper,"
-echo "           smarthome, workspaces, notifications"
+echo "           smarthome, notifications, switcherOpen, switcherNext,"
+echo "           switcherPrev, switcherConfirm, switcherCancel, switcherClose"

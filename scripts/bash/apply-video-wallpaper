@@ -3,23 +3,24 @@
 . "$(dirname "$0")/lib.sh"
 require_cmd jq ffmpeg mpvpaper
 
-# Config from piixconfig
+# Config from skwdconfig
 _wall_dir=$(cfg_get '.paths.wallpaper')
 _matugen_scheme=$(cfg_get '.matugen.schemeType // "scheme-fidelity"')
-_kde_scheme=$(cfg_get '.matugen.kdeColorScheme // "PiixidentMatugen"')
+_kde_scheme=$(cfg_get '.matugen.kdeColorScheme // "SkwdMatugen"')
 _wp_mute=$(cfg_get '.wallpaperMute // true')
 
 # Save wallpaper state for restore on next boot
-echo '{"type":"video","path":"'"$1"'"}' > "$PIIXIDENT_CACHE/last-wallpaper.json"
+echo '{"type":"video","path":"'"$1"'"}' > "$SKWD_CACHE/last-wallpaper.json"
 
 # Run in background subshell via nohup
 nohup bash -c '
-video_path="$1"
-wall_dir="$2"
-matugen_scheme="$3"
-kde_scheme="$4"
-wp_mute="$5"
-video_cache="$HOME/.cache/piixident/wallpaper/video-thumbs"
+scripts_dir="$1"
+video_path="$2"
+wall_dir="$3"
+matugen_scheme="$4"
+kde_scheme="$5"
+wp_mute="$6"
+video_cache="$SKWD_CACHE/wallpaper/video-thumbs"
 
 pkill -9 linux-wallpaper 2>/dev/null
 pkill mpvpaper 2>/dev/null
@@ -46,9 +47,9 @@ pkill awww-daemon 2>/dev/null
 
 if [ -f "$thumb_path" ]; then
   cp "$thumb_path" "$wall_dir/wallpaper.jpg"
-  command -v matugen >/dev/null && matugen image -t "$matugen_scheme" "$thumb_path"
-  "$(dirname "$0")/apply-niri-colors"
-  "$(dirname "$0")/generate-omp-theme"
+  command -v matugen >/dev/null && matugen -c "$SKWD_MATUGEN_CONFIG" image -t "$matugen_scheme" "$thumb_path"
+  "$scripts_dir/apply-niri-colors"
+  "$scripts_dir/generate-omp-theme"
 fi
 
 command -v kwriteconfig6 >/dev/null && kwriteconfig6 --file kdeglobals --group General --key ColorScheme "$kde_scheme"
@@ -60,4 +61,4 @@ pkill -USR1 kitty 2>/dev/null
 command -v spicetify >/dev/null && spicetify refresh &>/dev/null &
 
 command -v notify-send >/dev/null && notify-send "Video Wallpaper" "Applied: $(basename "$video_path")"
-' _ "$1" "$_wall_dir" "$_matugen_scheme" "$_kde_scheme" "$_wp_mute" </dev/null >/dev/null 2>&1 &
+' _ "$(dirname "$0")" "$1" "$_wall_dir" "$_matugen_scheme" "$_kde_scheme" "$_wp_mute" </dev/null >/dev/null 2>&1 &

@@ -3,8 +3,7 @@
 
 . "$(dirname "$0")/lib.sh"
 
-ANALYSIS_LOG="$PIIXIDENT_CACHE/analyze-wallpapers.log"
-HOME_DIR="$HOME"
+ANALYSIS_LOG="$SKWD_CACHE/analyze-wallpapers.log"
 
 # Extract [current/total] progress pattern from log line
 extract_progress() {
@@ -66,20 +65,20 @@ echo "━━━━━━━━━━━━━━━━━━━━━━━━�
 
 # Cache file statistics
 echo "CACHE STATUS:"
-if [ -f "$HOME_DIR/.cache/piixident/wallpaper/tags.json" ]; then
-  tags_count=$(jq 'keys | length' "$HOME_DIR/.cache/piixident/wallpaper/tags.json" 2>/dev/null || echo 0)
+if [ -f "$SKWD_CACHE/wallpaper/tags.json" ]; then
+  tags_count=$(jq 'keys | length' "$SKWD_CACHE/wallpaper/tags.json" 2>/dev/null || echo 0)
 else
   tags_count=0
 fi
 
-if [ -f "$HOME_DIR/.cache/piixident/wallpaper/colors.json" ]; then
-  colors_count=$(jq 'keys | length' "$HOME_DIR/.cache/piixident/wallpaper/colors.json" 2>/dev/null || echo 0)
+if [ -f "$SKWD_CACHE/wallpaper/colors.json" ]; then
+  colors_count=$(jq 'keys | length' "$SKWD_CACHE/wallpaper/colors.json" 2>/dev/null || echo 0)
 else
   colors_count=0
 fi
 
-if [ -f "$HOME_DIR/.cache/piixident/wallpaper/list.jsonl" ]; then
-  total_wallpapers=$(wc -l < "$HOME_DIR/.cache/piixident/wallpaper/list.jsonl" 2>/dev/null || echo 0)
+if [ -f "$SKWD_CACHE/wallpaper/list.jsonl" ]; then
+  total_wallpapers=$(wc -l < "$SKWD_CACHE/wallpaper/list.jsonl" 2>/dev/null || echo 0)
 else
   total_wallpapers="?"
 fi

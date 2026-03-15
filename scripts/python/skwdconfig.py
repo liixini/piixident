@@ -1,9 +1,15 @@
-"""Shared config loader for piixident scripts."""
+"""Shared config loader for skwd scripts."""
+import os
 import json
 from pathlib import Path
 
-# Config file path
-CONFIG_PATH = Path.home() / ".config/piixident/data/config.json"
+# Paths resolved from environment or XDG defaults
+CONFIG_DIR = Path(os.environ.get("SKWD_CONFIG",
+                  Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config")) / "skwd"))
+CACHE_DIR = Path(os.environ.get("SKWD_CACHE",
+                 Path(os.environ.get("XDG_CACHE_HOME", Path.home() / ".cache")) / "skwd"))
+INSTALL_DIR = Path(os.environ.get("SKWD_INSTALL", CONFIG_DIR))
+CONFIG_PATH = CONFIG_DIR / "data" / "config.json"
 
 _config = None
 
@@ -62,4 +68,13 @@ def matugen_scheme() -> str:
     return get("matugen.schemeType", "scheme-fidelity")
 
 def kde_color_scheme() -> str:
-    return get("matugen.kdeColorScheme", "PiixidentMatugen")
+    return get("matugen.kdeColorScheme", "SkwdMatugen")
+
+def config_dir() -> Path:
+    return CONFIG_DIR
+
+def cache_dir() -> Path:
+    return CACHE_DIR
+
+def install_dir() -> Path:
+    return INSTALL_DIR
