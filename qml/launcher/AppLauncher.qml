@@ -592,6 +592,15 @@ Scope {
             visible: !bgImage.visible && (!thumbImage.visible || thumbImage.status !== Image.Ready)
           }
 
+          Text {
+            anchors.centerIn: parent
+            text: model.customIcon || ""
+            font.family: Style.fontFamilyIcons
+            font.pixelSize: 48
+            color: appLauncher.colors ? Qt.rgba(appLauncher.colors.primary.r, appLauncher.colors.primary.g, appLauncher.colors.primary.b, 0.7) : Qt.rgba(1, 1, 1, 0.5)
+            visible: model.customIcon !== "" && !bgImage.visible
+          }
+
 
           Image {
             id: thumbImage
