@@ -310,3 +310,29 @@ The `list-windows` outputs also have compositor-specific JSON shapes. The QML co
 
 Probably. Once again this was never meant to be released to the public, but I have as said made a best effort to decouple things for you to be able to use.
 Realistically you could probably just grab one of the QML files, rip out all the interdependency and just use that standalone if that's more your vibe though.
+
+#### Fedora/COPR external dependencies
+
+Some features require tools not yet packaged for Fedora:
+
+- **matugen** (Material You color extraction): https://github.com/InioX/matugen
+- **mpvpaper** (video wallpaper): https://github.com/GhostWriters/mpvpaper
+
+If you want these features, install them manually:
+
+```sh
+git clone https://github.com/InioX/matugen.git
+cd matugen
+pip install . --user
+
+# For mpvpaper
+sudo dnf install mpv meson ninja pkg-config gcc
+# Then:
+git clone https://github.com/GhostWriters/mpvpaper.git
+cd mpvpaper
+meson setup build
+ninja -C build
+sudo ninja -C build install
+```
+
+These are only recommended, not required. All other dependencies are available in Fedora or COPR (see above).
