@@ -357,6 +357,9 @@ def parse_steam_games() -> list[dict]:
 # Main: parse apps, generate thumbnails, write JSONL cache
 def main():
 
+    _cache.mkdir(parents=True, exist_ok=True)
+    THUMB_DIR.mkdir(parents=True, exist_ok=True)
+
     desktop_apps = parse_desktop_files()
     steam_games = parse_steam_games()
 

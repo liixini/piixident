@@ -378,7 +378,7 @@ Scope {
             anchors.centerIn: parent
             anchors.verticalCenterOffset: -20
             text: service.getIcon(model.appId)
-            property int iconSize: delegateItem.isCurrent ? 96 : 48
+            property int iconSize: 96
             font.pixelSize: iconSize
             font.family: Style.fontFamilyMono
             opacity: windowThumb.visible ? 0.7 : 1.0
