@@ -4,16 +4,20 @@
   "final_space": true,
   "console_title_template": "{{ .Shell }} in {{ .Folder }}",
   "palette": {
-    "primary": "#c5c4e0",
-    "on-primary": "#2e2e45",
-    "tertiary": "#d6c59a",
-    "on-tertiary": "#3a2f11",
-    "surface": "#141315",
-    "surface-variant": "#47464d",
-    "on-surface-variant": "#c8c5cd",
+    "primary": "#ffd4d4",
+    "on-primary": "#502224",
+    "primary-container": "#f8b0b0",
+    "on-primary-container": "#542527",
+    "tertiary": "#b4eacd",
+    "on-tertiary": "#003825",
+    "tertiary-container": "#99ceb2",
+    "on-tertiary-container": "#013c28",
+    "surface": "#171212",
+    "surface-variant": "#524343",
+    "on-surface-variant": "#d6c2c1",
     "error": "#ffb4ab",
     "on-error": "#690005",
-    "outline": "#929097"
+    "outline": "#9f8c8c"
   },
   "blocks": [
     {
@@ -21,11 +25,19 @@
       "alignment": "left",
       "segments": [
         {
-          "type": "path",
+          "type": "time",
           "style": "powerline",
           "powerline_symbol": "\ue0b8",
           "foreground": "p:on-primary",
           "background": "p:primary",
+          "template": " {{ .CurrentDate | date \"15:04\" }} "
+        },
+        {
+          "type": "path",
+          "style": "powerline",
+          "powerline_symbol": "\ue0b8",
+          "foreground": "p:on-tertiary",
+          "background": "p:tertiary",
           "template": " \uf413 {{ .Path }} ",
           "properties": {
             "style": "agnoster_short",
@@ -36,8 +48,8 @@
           "type": "git",
           "style": "powerline",
           "powerline_symbol": "\ue0b8",
-          "foreground": "p:on-tertiary",
-          "background": "p:tertiary",
+          "foreground": "p:on-primary",
+          "background": "p:primary",
           "template": " \ue0a0 {{ .HEAD }}{{ if .Working.Changed }} \uf044 {{ .Working.String }}{{ end }}{{ if .Staging.Changed }} \uf046 {{ .Staging.String }}{{ end }} ",
           "properties": {
             "branch_icon": "",
@@ -72,15 +84,6 @@
             "threshold": 2000,
             "style": "roundrock"
           }
-        },
-        {
-          "type": "time",
-          "style": "powerline",
-          "powerline_symbol": "\ue0ba",
-          "invert_powerline": true,
-          "foreground": "p:on-primary",
-          "background": "p:primary",
-          "template": " {{ .CurrentDate | date \"15:04\" }} "
         }
       ]
     },
