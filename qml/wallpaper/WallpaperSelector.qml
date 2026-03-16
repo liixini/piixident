@@ -1141,6 +1141,7 @@ Scope {
         }
 
         Rectangle {
+          id: typeBadge
           anchors.bottom: parent.bottom
           anchors.bottomMargin: 8
           anchors.right: parent.right
@@ -1165,35 +1166,25 @@ Scope {
           }
         }
 
-        // Matugen color preview dots (bottom-left of selected slice)
+        // Matugen color preview dots – shows the colors quickshell components actually use
         Row {
-          anchors.bottom: parent.bottom
-          anchors.bottomMargin: 12
-          anchors.left: parent.left
-          anchors.leftMargin: wallpaperSelector.skewOffset + 8
-          spacing: 6
-          visible: delegateItem.isCurrent && wallpaperColors !== undefined
+          z: 10
+          anchors.verticalCenter: typeBadge.verticalCenter
+          anchors.right: typeBadge.left
+          anchors.rightMargin: 6
+          spacing: 4
+          visible: Config.wallpaperColorDots && wallpaperColors !== undefined
           property var wallpaperColors: {
             var key = model.weId ? model.weId : model.thumb.split("/").pop().replace(/\.[^/.]+$/, "")
             return service.matugenDb[key]
           }
-          Rectangle {
-            width: 14; height: 14; radius: 7
-            color: parent.wallpaperColors ? parent.wallpaperColors.primary : "#888"
-            border.width: 1; border.color: Qt.rgba(0, 0, 0, 0.5)
-            visible: parent.wallpaperColors !== undefined
-          }
-          Rectangle {
-            width: 14; height: 14; radius: 7
-            color: parent.wallpaperColors ? parent.wallpaperColors.secondary : "#666"
-            border.width: 1; border.color: Qt.rgba(0, 0, 0, 0.5)
-            visible: parent.wallpaperColors !== undefined
-          }
-          Rectangle {
-            width: 14; height: 14; radius: 7
-            color: parent.wallpaperColors ? parent.wallpaperColors.tertiary : "#444"
-            border.width: 1; border.color: Qt.rgba(0, 0, 0, 0.5)
-            visible: parent.wallpaperColors !== undefined
+          Repeater {
+            model: ["primary", "tertiary", "secondary"]
+            Rectangle {
+              width: 10; height: 10; radius: 5
+              color: parent.wallpaperColors ? (parent.wallpaperColors[modelData] ?? "#888") : "#888"
+              border.width: 1; border.color: Qt.rgba(0, 0, 0, 0.5)
+            }
           }
         }
 

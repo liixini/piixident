@@ -25,3 +25,7 @@ ext/matugen/templates/*.generated
 .idea/
 .DS_Store
 ext/omp/skwd.omp.json
+*.pkg.tar.zst
+pkg/
+src/
+skwd-git/

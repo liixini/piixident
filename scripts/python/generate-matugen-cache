@@ -41,7 +41,10 @@ def get_matugen_colors(image_path: Path) -> dict | None:
             camel_key = parts[0] + ''.join(p.capitalize() for p in parts[1:])
 
             if isinstance(value, dict):
-                extracted[camel_key] = value.get("dark", value.get("default", "#888888"))
+                dark = value.get("dark", value.get("default", "#888888"))
+                if isinstance(dark, dict):
+                    dark = dark.get("color", "#888888")
+                extracted[camel_key] = dark
             else:
                 extracted[camel_key] = value
 

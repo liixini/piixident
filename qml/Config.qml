@@ -63,9 +63,9 @@ QtObject {
     property var _bar: _data.components?.bar ?? {}
     readonly property bool barEnabled: _bar.enabled !== false
     readonly property string weatherCity: Quickshell.env("SKWD_WEATHER_CITY") || (_bar.weather?.city ?? "")
-    readonly property bool weatherEnabled: _bar.weather !== undefined && _bar.weather !== false
+    readonly property bool weatherEnabled: _bar.weather !== undefined && _bar.weather !== false && _bar.weather?.enabled !== false
     readonly property string wifiInterface: _bar.wifi?.interface ?? ""
-    readonly property bool wifiEnabled: _bar.wifi !== undefined && _bar.wifi !== false
+    readonly property bool wifiEnabled: _bar.wifi !== undefined && _bar.wifi !== false && _bar.wifi?.enabled !== false
     readonly property bool bluetoothEnabled: _bar.bluetooth !== false
     readonly property bool volumeEnabled: _bar.volume !== false
     readonly property bool calendarEnabled: _bar.calendar !== false
@@ -79,7 +79,9 @@ QtObject {
     // Standalone component enable/disable flags
     property var _components: _data.components ?? {}
     readonly property bool appLauncherEnabled: _components.appLauncher !== false
-    readonly property bool wallpaperSelectorEnabled: _components.wallpaperSelector !== false
+    readonly property bool wallpaperSelectorEnabled: _components.wallpaperSelector !== false && _components.wallpaperSelector?.enabled !== false
+    property var _wallpaperSelector: (typeof _components.wallpaperSelector === "object" && _components.wallpaperSelector !== null) ? _components.wallpaperSelector : {}
+    readonly property bool wallpaperColorDots: _wallpaperSelector.showColorDots !== false
     readonly property bool windowSwitcherEnabled: _components.windowSwitcher !== false
     readonly property bool powerMenuEnabled: _components.powerMenu !== false && _components.powerMenu?.enabled !== false
     readonly property var powerMenuOptions: _components.powerMenu?.items ?? (Array.isArray(_components.powerMenu) ? _components.powerMenu : [])

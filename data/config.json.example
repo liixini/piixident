@@ -44,9 +44,11 @@
     "bar": {
       "enabled": true,
       "weather": {
+        "enabled": true,
         "city": "YOUR_CITY"
       },
       "wifi": {
+        "enabled": true,
         "interface": "wlan0"
       },
       "bluetooth": true,
@@ -62,7 +64,10 @@
     },
     "lockscreen": false,
     "appLauncher": true,
-    "wallpaperSelector": true,
+    "wallpaperSelector": {
+      "enabled": true,
+      "showColorDots": true
+    },
     "windowSwitcher": true,
     "powerMenu": {
       "enabled": true,
