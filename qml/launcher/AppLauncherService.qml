@@ -8,6 +8,7 @@ QtObject {
   required property string scriptsDir
   required property string homeDir
   required property string cacheDir
+  required property string configDir
   required property string terminal
 
   property string cacheFile: cacheDir + "/app-launcher/list.jsonl"
@@ -122,7 +123,18 @@ QtObject {
           break
         }
       }
-      if (same) return
+      if (same) {
+        for (var u = 0; u < results.length; u++) {
+          var r = results[u]
+          var f = filteredModel.get(u)
+          if (f.background !== r.background) filteredModel.setProperty(u, "background", r.background)
+          if (f.displayName !== r.displayName) filteredModel.setProperty(u, "displayName", r.displayName)
+          if (f.customIcon !== r.customIcon) filteredModel.setProperty(u, "customIcon", r.customIcon)
+          if (f.thumb !== r.thumb) filteredModel.setProperty(u, "thumb", r.thumb)
+          if (f.tags !== r.tags) filteredModel.setProperty(u, "tags", r.tags)
+        }
+        return
+      }
     }
 
     filteredModel.clear()
@@ -242,6 +254,63 @@ QtObject {
     id: desktopWatcherRestart
     interval: 5000
     onTriggered: desktopWatcher.running = true
+  }
+
+  property var _appsJsonWatcher: FileView {
+    path: service.configDir + "/data/apps.json"
+    preload: true
+    watchChanges: true
+    onFileChanged: reload()
+    onLoaded: service._applyAppsConfig()
+  }
+
+  function _applyAppsConfig() {
+    var text = _appsJsonWatcher.text().trim()
+    if (!text || appModel.count === 0) return
+    try {
+      var data = JSON.parse(text)
+    } catch (e) { return }
+
+    // Build lookup: lowercase key → config object
+    var configMap = {}
+    for (var k in data) {
+      if (k.startsWith("_")) continue
+      var v = data[k]
+      if (typeof v === "string")
+        configMap[k.toLowerCase()] = v ? { background: v } : {}
+      else if (typeof v === "object" && v !== null)
+        configMap[k.toLowerCase()] = v
+    }
+
+    var home = service.homeDir
+    function resolve(p) { return p ? p.replace("~", home) : "" }
+
+    // Patch each model entry in-place
+    for (var i = 0; i < appModel.count; i++) {
+      var item = appModel.get(i)
+      var conf = _findAppConfig(item.name, configMap)
+      var bg = resolve(conf.background || "")
+      var dn = conf.displayName || ""
+      var ci = conf.icon || ""
+      var tags = conf.tags || ""
+      var hidden = !!conf.hidden
+
+      if (item.background !== bg) appModel.setProperty(i, "background", bg)
+      if (item.displayName !== dn) appModel.setProperty(i, "displayName", dn)
+      if (item.customIcon !== ci) appModel.setProperty(i, "customIcon", ci)
+      if (item.tags !== tags) appModel.setProperty(i, "tags", tags)
+      if (item.hidden !== hidden) appModel.setProperty(i, "hidden", hidden)
+    }
+    updateFilteredModel()
+  }
+  
+  function _findAppConfig(name, configMap) {
+    var lower = name.toLowerCase()
+    if (configMap[lower]) return configMap[lower]
+    for (var key in configMap) {
+      if (lower.indexOf(key) !== -1) return configMap[key]
+    }
+    return {}
   }
 
   property var _desktopWatcherDebounce: Timer {

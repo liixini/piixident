@@ -1,0 +1,14 @@
+ConfigPanel 1.0 ConfigPanel.qml
+ConfigAppsSection 1.0 ConfigAppsSection.qml
+ConfigBarSection 1.0 ConfigBarSection.qml
+ConfigComponentsSection 1.0 ConfigComponentsSection.qml
+ConfigFileBrowser 1.0 ConfigFileBrowser.qml
+ConfigFooter 1.0 ConfigFooter.qml
+ConfigGeneralSection 1.0 ConfigGeneralSection.qml
+ConfigIconPicker 1.0 ConfigIconPicker.qml
+ConfigIntegrationsSection 1.0 ConfigIntegrationsSection.qml
+ConfigIntervalsSection 1.0 ConfigIntervalsSection.qml
+ConfigNumberField 1.0 ConfigNumberField.qml
+ConfigSectionTitle 1.0 ConfigSectionTitle.qml
+ConfigTextField 1.0 ConfigTextField.qml
+ConfigToggle 1.0 ConfigToggle.qml

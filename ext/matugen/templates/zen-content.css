@@ -1,0 +1,34 @@
+/* Matugen template: Zen browser userContent.css from wallpaper
+ * Styles web content pages like new tab, about:blank, etc. */
+
+@-moz-document url("about:newtab"), url("about:home") {
+    body {
+        background-color: {{colors.surface.default.hex}} !important;
+        color: {{colors.tertiary.default.hex}} !important;
+    }
+
+    .search-wrapper input {
+        background-color: {{colors.surface_container.default.hex}} !important;
+        color: {{colors.tertiary.default.hex}} !important;
+        border-color: {{colors.outline_variant.default.hex}} !important;
+    }
+
+    .top-site-outer .title span,
+    .top-site-outer .title {
+        color: {{colors.tertiary.default.hex}} !important;
+    }
+
+    .icon-settings,
+    .icon {
+        fill: {{colors.primary.default.hex}} !important;
+        color: {{colors.primary.default.hex}} !important;
+    }
+}
+
+@-moz-document url("about:privatebrowsing"), url("about:blank") {
+    body,
+    html {
+        background-color: {{colors.surface.default.hex}} !important;
+        color: {{colors.tertiary.default.hex}} !important;
+    }
+}

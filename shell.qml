@@ -23,7 +23,7 @@ ShellRoot {
   // IPC command listener (reads from FIFO pipe)
   // Supports: lock, powermenu, launcher, toggleBar, wallpaper,
   //   smarthome, switcherOpen/Next/Prev/Confirm/Cancel/Close,
-  //   notifications
+  //   notifications, config
   Process {
     id: ipcListener
     running: true
@@ -77,6 +77,8 @@ ShellRoot {
           if (root.windowSwitcherInstance) root.windowSwitcherInstance.closeSelected()
         } else if (cmd === "notifications") {
           if (root.notificationInstance) root.notificationInstance.toggleCenter()
+        } else if (cmd === "config") {
+          if (root.configPanelInstance) root.configPanelInstance.showing = !root.configPanelInstance.showing
         }
       }
     }
@@ -240,6 +242,13 @@ ShellRoot {
     }
   }
 
+  Loader {
+    id: configPanelLoader
+    active: true
+    source: "qml/config-panel/ConfigPanel.qml"
+    onLoaded: item.colors = Qt.binding(() => colors)
+  }
+
   // Component instance references (null until loaded)
   property var wallpaperSelectorInstance: wallpaperSelectorLoader.item ?? null
   property var appLauncherInstance: appLauncherLoader.item ?? null
@@ -248,6 +257,7 @@ ShellRoot {
   property var windowSwitcherInstance: windowSwitcherLoader.item ?? null
   property var smartHomeInstance: smartHomeLoader.item ?? null
   property var notificationInstance: notificationLoader.item ?? null
+  property var configPanelInstance: configPanelLoader.item ?? null
 
   // System clock and audio sink tracking
   SystemClock {

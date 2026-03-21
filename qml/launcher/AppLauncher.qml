@@ -24,6 +24,7 @@ Scope {
     scriptsDir: Config.scriptsDir
     homeDir: Config.homeDir
     cacheDir: Config.cacheDir
+    configDir: Config.configDir
     terminal: Config.terminal
 
     onSearchTextChanged: {
