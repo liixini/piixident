@@ -32,7 +32,7 @@ Item {
 
     Text {
       width: parent.width
-      text: "To add controls, populate qml/sections/" + root.sectionFile + " with the same pattern as SwitchSettings.qml — declare the categories list, add Config keys for each tunable, and use SettingsSlider rows wired through SettingsService."
+      text: "To add controls, populate qml/sections/" + root.sectionFile + " with the same pattern as SwitchSettings.qml - declare the categories list, add Config keys for each tunable, and use SettingsSlider rows wired through SettingsService."
       font.family: Style.fontFamily; font.pixelSize: 11 * Config.uiScale
       color: root.colors ? Qt.rgba(root.colors.surfaceText.r, root.colors.surfaceText.g, root.colors.surfaceText.b, 0.55) : Qt.rgba(1, 1, 1, 0.4)
       wrapMode: Text.Wrap

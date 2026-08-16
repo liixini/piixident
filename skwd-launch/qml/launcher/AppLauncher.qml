@@ -278,11 +278,11 @@ Scope {
                   }
                 }
 
-                ToolTip {
+                StyledToolTip {
                   visible: sourceMouseArea.containsMouse
                   text: modelData.label
                   delay: 500
-                  contentWidth: implicitContentWidth
+                  colors: appLauncher.colors
                 }
               }
             }
@@ -297,11 +297,18 @@ Scope {
 
 
           Text {
+            id: searchIcon
             text: "󰍉"
             font.family: Style.fontFamilyIcons
             font.pixelSize: 18
             color: appLauncher.colors ? appLauncher.colors.tertiary : "#8bceff"
             anchors.verticalCenter: parent.verticalCenter
+
+            MouseArea {
+              anchors.fill: parent
+              cursorShape: Qt.IBeamCursor
+              onClicked: searchInput.forceActiveFocus()
+            }
           }
 
 

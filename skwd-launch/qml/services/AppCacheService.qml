@@ -18,7 +18,7 @@ QtObject {
     readonly property string splashThumbDir: cacheDir + "/app-launcher/splash-thumbs"
     readonly property string versionFile: cacheDir + "/app-launcher/list.version"
 
-    readonly property int cacheVersion: 2
+    readonly property int cacheVersion: 3
     readonly property string appsJsonPath: configDir + "/data/apps.json"
     readonly property int thumbSize: 256
     readonly property int splashThumbWidth: 640
@@ -132,7 +132,7 @@ QtObject {
             '  local name="$1"\n' +
             '  [ -z "$name" ] && return\n' +
             '  [ "${name:0:1}" = "/" ] && [ -f "$name" ] && echo "$name" && return\n' +
-            '  local dirs="$HOME_DIR/.local/share/icons /usr/share/icons/hicolor /usr/share/icons/Adwaita /usr/share/icons/breeze /usr/share/icons/breeze-dark /usr/share/pixmaps /usr/share/icons"\n' +
+            '  local dirs="$HOME_DIR/.local/share/icons /usr/share/icons/hicolor /usr/share/icons/Adwaita /usr/share/icons/breeze /usr/share/icons/breeze-dark /usr/share/pixmaps /usr/share/icons /var/lib/flatpak/exports/share/icons/hicolor $HOME_DIR/.local/share/flatpak/exports/share/icons/hicolor"\n' +
             '  local sizes="512x512 256x256 128x128 96x96 64x64 48x48 scalable"\n' +
             '  for d in $dirs; do\n' +
             '    [ -d "$d" ] || continue\n' +

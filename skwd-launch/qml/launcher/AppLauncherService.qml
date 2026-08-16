@@ -1,6 +1,7 @@
 import Quickshell.Io
 import QtQuick
 import "../services"
+import ".."
 
 QtObject {
   id: service
